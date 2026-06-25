@@ -1,0 +1,82 @@
+/* src/assets/styles/animations.css */
+/* Animaciones y microinteracciones reutilizables */
+
+/* === ENTRADA SUAVE (para cards, vistas, modales) === */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.anim-entrada {
+  animation: fadeInUp 0.35s ease both;
+}
+
+/* Entrada escalonada (para listas: cada item entra un poco después) */
+.anim-stagger > * {
+  animation: fadeInUp 0.35s ease both;
+}
+.anim-stagger > *:nth-child(1) { animation-delay: 0.04s; }
+.anim-stagger > *:nth-child(2) { animation-delay: 0.08s; }
+.anim-stagger > *:nth-child(3) { animation-delay: 0.12s; }
+.anim-stagger > *:nth-child(4) { animation-delay: 0.16s; }
+.anim-stagger > *:nth-child(5) { animation-delay: 0.20s; }
+.anim-stagger > *:nth-child(6) { animation-delay: 0.24s; }
+
+/* === FADE simple === */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.anim-fade { animation: fadeIn 0.25s ease both; }
+
+/* === PULSO (para llamar atención, ej: alertas) === */
+@keyframes pulso {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.04); }
+}
+.anim-pulso { animation: pulso 1.5s ease-in-out infinite; }
+
+/* === SPINNER (carga) === */
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner {
+  width: 20px; height: 20px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+.spinner--sm { width: 14px; height: 14px; border-width: 2px; }
+.spinner--lg { width: 32px; height: 32px; border-width: 3px; }
+
+/* === SKELETON (carga de contenido, efecto "shimmer") === */
+@keyframes shimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--bg-surface-2) 25%,
+    var(--border) 50%,
+    var(--bg-surface-2) 75%
+  );
+  background-size: 800px 100%;
+  animation: shimmer 1.4s infinite linear;
+  border-radius: var(--radius-sm);
+}
+
+/* === Respeta a quien prefiere menos movimiento (accesibilidad) === */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Card que reacciona al pasar el mouse */
+.card-hover {
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+.card-hover:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-lg);
+}

@@ -1,0 +1,64 @@
+/* src/assets/styles/variables.css */
+/* Paleta cálida, pensada para uso prolongado sin cansar la vista */
+
+:root {
+  /* === FONDOS (tonos crema/hueso, nunca blanco puro) === */
+  --bg-app: #faf8f5;          /* fondo general de la app */
+  --bg-surface: #ffffff;       /* tarjetas, paneles (blanco suave) */
+  --bg-surface-2: #f5f1ec;     /* fondos secundarios, hover suave */
+  --bg-sidebar: #2d2a26;       /* sidebar oscuro cálido (no negro) */
+
+  /* === TEXTO (gris cálido, nunca negro puro) === */
+  --text-primary: #2d2a26;     /* texto principal */
+  --text-secondary: #6b635a;   /* texto secundario, descripciones */
+  --text-muted: #9c938a;       /* texto tenue, placeholders */
+  --text-on-dark: #f5f1ec;     /* texto sobre fondos oscuros */
+
+  /* === COLOR DE ACENTO (terracota cálido) === */
+  --accent: #c2643f;           /* color principal de marca */
+  --accent-hover: #a8512f;     /* hover del acento */
+  --accent-soft: #f5e6df;      /* fondo suave del acento (badges, etc.) */
+
+  /* === ESTADOS (versiones cálidas, no chillonas) === */
+  --success: #5a8a5a;          /* verde oliva suave */
+  --success-soft: #e8f0e6;
+  --warning: #d4943c;          /* ámbar */
+  --warning-soft: #faf0dc;
+  --danger: #b85c4f;           /* rojo terracota (no rojo puro) */
+  --danger-soft: #f7e4e0;
+  --info: #5a7a8a;             /* azul grisáceo cálido */
+  --info-soft: #e4edf0;
+
+  /* === BORDES === */
+  --border: #e8e1d8;           /* bordes suaves */
+  --border-strong: #d4cabd;    /* bordes más visibles */
+
+  /* === SOMBRAS (suaves) === */
+  --shadow-sm: 0 1px 3px rgba(45, 42, 38, 0.06);
+  --shadow-md: 0 4px 12px rgba(45, 42, 38, 0.08);
+  --shadow-lg: 0 8px 24px rgba(45, 42, 38, 0.12);
+
+  /* === ESPACIADO (sistema consistente) === */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+
+  /* === RADIOS (esquinas redondeadas, look moderno) === */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+
+  /* === TIPOGRAFÍA === */
+  --font-sans: 'Inter', -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.5rem;
+  --text-2xl: 2rem;
+
+  /* === TRANSICIONES === */
+  --transition: 0.2s ease;
+}
