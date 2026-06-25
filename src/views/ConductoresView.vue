@@ -158,7 +158,7 @@ async function guardar() {
       nombres: form.value.nombres,
       apellidos: form.value.apellidos || undefined,
       licencia_conducir: form.value.licencia_conducir.toUpperCase(),
-      transportista_id: form.value.transportista_id || undefined,
+      transportista_id: form.value.transportista_id || '',
     };
 
     if (editandoId.value) {
