@@ -24,16 +24,14 @@ http.interceptors.response.use(
     const auth = useAuthStore();
     const originalRequest = error.config;
 
-    // Si fue 401 y no se reintentó, y NO es el endpoint /refresh
     if (
-  error.response?.status === 401 &&
-  !originalRequest._retry &&
-  !originalRequest.url.includes('/auth/refresh') &&
-  !originalRequest.url.includes('/auth/login') &&
-  !originalRequest.url.includes('/auth/seleccionar-empresa')
-) {
+      error.response?.status === 401 &&
+      !originalRequest._retry &&
+      !originalRequest.url.includes('/auth/refresh') &&
+      !originalRequest.url.includes('/auth/login') &&
+      !originalRequest.url.includes('/auth/seleccionar-empresa')
+    ) {
       if (renovando) {
-        // Ya hay una renovación en curso, esperarla
         return new Promise((resolve) => {
           colaPendiente.push((nuevoToken: string) => {
             originalRequest.headers.Authorization = `Bearer ${nuevoToken}`;
@@ -47,25 +45,31 @@ http.interceptors.response.use(
 
       try {
         const refreshToken = localStorage.getItem('refresh_token');
-        const response = await axios.post('http://localhost:3000/auth/refresh', {
+        
+        if (!refreshToken) {
+          throw new Error('No refresh token');
+        }
+        
+        // ✅ FIX: usar la URL del backend desde env (no localhost)
+        const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+        const response = await axios.post(`${baseURL}/auth/refresh`, {
           refresh_token: refreshToken,
         });
 
         const { access_token, refresh_token } = response.data;
         auth.token = access_token;
         localStorage.setItem('token', access_token);
-        localStorage.setItem('refresh_token', refresh_token);
+        if (refresh_token) {
+          localStorage.setItem('refresh_token', refresh_token);
+        }
 
-        // Reintentar la petición original
         originalRequest.headers.Authorization = `Bearer ${access_token}`;
         
-        // Procesar la cola
         colaPendiente.forEach((cb) => cb(access_token));
         colaPendiente = [];
 
         return http(originalRequest);
       } catch (refreshError) {
-        // El refresh falló, cerrar sesión
         colaPendiente = [];
         auth.cerrarSesion();
         window.location.href = '/login';

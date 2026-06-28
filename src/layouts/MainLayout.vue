@@ -8,7 +8,7 @@ import { useToast } from '../composables/useToast';
 import {
   LayoutDashboard, Receipt, Package, Users, ShoppingCart, Wallet, Menu, Power,
   Truck, FileMinus, Settings, Shield, Ticket, Building2, BarChart3, Car,
-  UserCircle2, MapPin, History, AlertTriangle, ArrowLeftRight, Palette, ShieldCheck,
+  UserCircle2, MapPin, History, AlertTriangle, ArrowLeftRight, Palette, ShieldCheck, HelpCircle
 } from 'lucide-vue-next';
 
 const router = useRouter();
@@ -191,17 +191,38 @@ onMounted(async () => {
     <!-- CONTENIDO -->
     <div class="contenido">
       <!-- Banner producción -->
-      <div v-if="esProduccion" class="banner-produccion">
-        <AlertTriangle :size="14" />
-        <strong>Estás en PRODUCCIÓN.</strong>
-        <span>Los comprobantes que emitas serán REALES y registrados en SUNAT.</span>
-      </div>
+      
 
       <header class="header">
         <button class="header__toggle" @click="sidebarAbierto = !sidebarAbierto">
           <Menu :size="22" />
         </button>
         <div class="header__usuario">
+           <div 
+      v-if="auth.empresaActual"
+      class="indicador-ambiente"
+      :class="{ 
+        'indicador-ambiente--prod': esProduccion,
+        'indicador-ambiente--beta': !esProduccion 
+      }"
+    >
+      <span class="indicador-ambiente__punto"></span>
+      <HelpCircle :size="14" class="indicador-ambiente__icono" />
+      
+      <div class="indicador-ambiente__tooltip">
+        <div class="indicador-ambiente__tooltip-titulo">
+          {{ esProduccion ? '⚠️ Modo PRODUCCIÓN' : '🧪 Modo BETA' }}
+        </div>
+        <div class="indicador-ambiente__tooltip-texto">
+          <template v-if="esProduccion">
+            Los comprobantes que emitas serán <strong>REALES</strong> y se registrarán en SUNAT con validez legal.
+          </template>
+          <template v-else>
+            Los comprobantes que emitas son de <strong>prueba</strong>. Sin validez fiscal.
+          </template>
+        </div>
+      </div>
+    </div>
           <div class="header__info">
             <span class="header__nombre">{{ auth.usuario?.nombre }}</span>
             <span class="header__rol">{{ auth.usuario?.rol }}</span>
@@ -420,16 +441,6 @@ onMounted(async () => {
 }
 
 /* BANNER PRODUCCIÓN */
-.banner-produccion {
-  background: linear-gradient(90deg, var(--success), #16a34a);
-  color: white;
-  padding: 8px var(--space-lg);
-  font-size: var(--text-xs);
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  font-weight: 500;
-}
 .banner-produccion strong { font-weight: 700; }
 
 /* HEADER */
@@ -480,5 +491,113 @@ onMounted(async () => {
   overflow-y: auto;
   padding: var(--space-lg);
   background: var(--bg-app);
+}
+
+/* ============================================
+   INDICADOR DE AMBIENTE (esquina superior derecha)
+   ============================================ */
+
+.indicador-ambiente {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 20px;
+  cursor: help;
+  transition: background-color 0.2s;
+  margin-right: 8px;
+}
+
+.indicador-ambiente:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.indicador-ambiente__punto {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.indicador-ambiente__icono {
+  color: #6b7280;
+  opacity: 0.7;
+}
+
+/* Estilo para PRODUCCIÓN (rojo brillante) */
+.indicador-ambiente--prod .indicador-ambiente__punto {
+  background-color: #ef4444;
+  box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+  animation: pulso-prod 2s infinite;
+}
+
+@keyframes pulso-prod {
+  0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+  70% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
+/* Estilo para BETA (amarillo parpadeando) */
+.indicador-ambiente--beta .indicador-ambiente__punto {
+  background-color: #f59e0b;
+  box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7);
+  animation: pulso-beta 2s infinite;
+}
+
+@keyframes pulso-beta {
+  0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7); }
+  70% { box-shadow: 0 0 0 8px rgba(245, 158, 11, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+}
+
+/* Tooltip */
+.indicador-ambiente__tooltip {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background-color: #1f2937;
+  color: white;
+  padding: 12px 16px;
+  border-radius: 8px;
+  width: 260px;
+  font-size: 13px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s, visibility 0.2s;
+  z-index: 1000;
+  pointer-events: none;
+}
+
+/* Flecha del tooltip */
+.indicador-ambiente__tooltip::before {
+  content: '';
+  position: absolute;
+  bottom: 100%;
+  right: 16px;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-bottom: 6px solid #1f2937;
+}
+
+.indicador-ambiente:hover .indicador-ambiente__tooltip {
+  opacity: 1;
+  visibility: visible;
+}
+
+.indicador-ambiente__tooltip-titulo {
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.indicador-ambiente__tooltip-texto {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #d1d5db;
+}
+
+.indicador-ambiente__tooltip-texto strong {
+  color: white;
 }
 </style>
