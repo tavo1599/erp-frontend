@@ -165,16 +165,30 @@ async function anularInternoSilencioso(venta: any) {
 async function ejecutarBaja(motivo: string) {
   const venta = ventaParaAnular.value;
   if (!venta) return;
+  
   try {
     const resultado = await ventasService.enviarBajaSunat(venta.id, motivo);
-    if (resultado.estado === 'PENDIENTE') {
-      toast.exito(`Baja enviada a SUNAT. Ticket: ${resultado.ticket}`);
-    } else {
-      toast.error(resultado.error || 'No se pudo enviar la baja');
-    }
+    
+    // Si llega aquí, SUNAT dio ticket → siempre PENDIENTE
+    toast.exito(`Baja enviada a SUNAT. Ticket: ${resultado.ticket}`);
     await cargar();
+    
   } catch (e: any) {
-    toast.error(e.response?.data?.message || 'Error al enviar la baja');
+    // Manejo mejorado de errores
+    const errorData = e.response?.data?.message;
+    
+    if (errorData?.sunat_descripcion) {
+      // SUNAT rechazó la baja inmediatamente
+      toast.error(`SUNAT rechazó la baja: ${errorData.sunat_descripcion}`);
+    } else if (errorData?.mensaje) {
+      // Mensaje con objeto
+      toast.error(errorData.mensaje);
+    } else if (typeof errorData === 'string') {
+      // Mensaje simple
+      toast.error(errorData);
+    } else {
+      toast.error('Error al enviar la baja');
+    }
   }
 }
 

@@ -181,14 +181,24 @@ async function emitir() {
       })),
     });
 
-    if (resultado.estado === 'ACEPTADO') {
-      toast.exito(`Nota emitida: ${resultado.comprobante}`);
-      router.push('/notas');
-    } else {
-      toast.error(`SUNAT rechazó la nota: ${resultado.error_sunat || 'Error desconocido'}`);
-    }
+    // Si llega aquí, siempre fue ACEPTADO (el backend lanza throw si rechaza)
+    toast.exito(`Nota emitida: ${resultado.comprobante}`);
+    router.push('/notas');
+    
   } catch (e: any) {
-    toast.error(e.response?.data?.message || 'Error al emitir la nota');
+    // Manejo mejorado de errores
+    const errorData = e.response?.data?.message;
+    
+    if (errorData?.sunat_codigo) {
+      toast.error(`SUNAT rechazó: ${errorData.sunat_descripcion}`);
+      console.warn('SUNAT código:', errorData.sunat_codigo, '- Correlativo no avanzó');
+    } else if (errorData?.mensaje) {
+      toast.error(errorData.mensaje);
+    } else if (typeof errorData === 'string') {
+      toast.error(errorData);
+    } else {
+      toast.error('Error al emitir la nota');
+    }
   } finally {
     emitiendo.value = false;
   }

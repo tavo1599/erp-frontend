@@ -234,14 +234,30 @@ async function emitir() {
         ? pagos.value.filter(p => Number(p.monto) > 0)
         : undefined,
     } as any);
+    
+    // Ahora SIEMPRE que llegue aquí, fue ACEPTADO (el backend lanza throw si rechaza)
     resultado.value = data;
-    if (data.estado === 'ACEPTADO') {
-      toast.exito(`Comprobante ${data.comprobante} aceptado por SUNAT`);
-    } else {
-      toast.error('Comprobante rechazado por SUNAT');
-    }
+    toast.exito(`Comprobante ${data.comprobante} aceptado por SUNAT`);
+    
   } catch (e: any) {
-    toast.error(e.response?.data?.message || 'Error al emitir el comprobante');
+    // Manejo mejorado: distinguir si es rechazo SUNAT o error del sistema
+    const errorData = e.response?.data?.message;
+    
+    if (errorData?.sunat_codigo) {
+      // Rechazo SUNAT con código y descripción
+      toast.error(
+        `SUNAT rechazó: ${errorData.sunat_descripcion}`,
+      );
+      console.warn('SUNAT código:', errorData.sunat_codigo, '- Correlativo no avanzó');
+    } else if (errorData?.mensaje) {
+      // Mensaje con objeto (otros errores de validación)
+      toast.error(errorData.mensaje);
+    } else if (typeof errorData === 'string') {
+      // Mensaje simple
+      toast.error(errorData);
+    } else {
+      toast.error('Error al emitir el comprobante');
+    }
   } finally {
     emitiendo.value = false;
   }
