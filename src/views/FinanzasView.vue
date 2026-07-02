@@ -11,10 +11,12 @@ import BaseButton from '../components/ui/BaseButton.vue';
 import BaseInput from '../components/ui/BaseInput.vue';
 import BaseSelect from '../components/ui/BaseSelect.vue';
 import { useToast } from '../composables/useToast';
+import { useAuthStore } from '../stores/auth.store';
 
 const toast = useToast();
 
 const { moneda, fecha } = useFormato();
+const auth = useAuthStore();
 
 const pestanaActiva = ref('cobrar');
 const pestanas = [
@@ -154,8 +156,14 @@ onMounted(cargar);
         <span class="badge" :class="valor === 'PAGADO' ? 'badge--ok' : valor === 'PARCIAL' ? 'badge--pend' : 'badge--info'">{{ valor }}</span>
       </template>
       <template #accion="{ fila }">
-        <BaseButton variant="secondary" @click="abrirPago(fila.id, 'cobrar', fila.saldo_pendiente, fila.comprobante)">Cobrar</BaseButton>
-      </template>
+  <BaseButton 
+    v-if="auth.tienePermiso('registrar_pagos')"
+    variant="secondary" 
+    @click="abrirPago(fila.id, 'cobrar', fila.saldo_pendiente, fila.comprobante)"
+  >
+    Cobrar
+  </BaseButton>
+</template>
     </BaseTable>
 
     <!-- POR PAGAR -->
@@ -165,8 +173,14 @@ onMounted(cargar);
         <span class="badge" :class="valor === 'PAGADO' ? 'badge--ok' : valor === 'PARCIAL' ? 'badge--pend' : 'badge--info'">{{ valor }}</span>
       </template>
       <template #accion="{ fila }">
-        <BaseButton variant="secondary" @click="abrirPago(fila.id, 'pagar', fila.saldo_pendiente, fila.documento)">Pagar</BaseButton>
-      </template>
+  <BaseButton 
+    v-if="auth.tienePermiso('registrar_pagos')"
+    variant="secondary" 
+    @click="abrirPago(fila.id, 'pagar', fila.saldo_pendiente, fila.documento)"
+  >
+    Pagar
+  </BaseButton>
+</template>
     </BaseTable>
 
     <!-- CAJA -->

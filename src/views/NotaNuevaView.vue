@@ -1,9 +1,7 @@
 <!-- src/views/NotaNuevaView.vue -->
 <script setup lang="ts">
-import { ref, computed } from 'vue';
-import { useRouter } from 'vue-router';
-import { useRoute } from 'vue-router';
-import { onMounted } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
 import { ArrowLeft, Search, Send, X } from 'lucide-vue-next';
 import { ventasService, type VentaRecuperada } from '../services/ventas.service';
 import { notasService } from '../services/notas.service';
@@ -14,6 +12,7 @@ import { useFrases } from '../composables/useFrases';
 import BaseButton from '../components/ui/BaseButton.vue';
 import BaseInput from '../components/ui/BaseInput.vue';
 import BaseSelect from '../components/ui/BaseSelect.vue';
+import { useAuthStore } from '../stores/auth.store';
 
 // Interfaz clara para los items de la nota
 interface ItemNota {
@@ -29,6 +28,12 @@ const { moneda, fecha } = useFormato();
 const toast = useToast();
 const { confirmar } = useConfirm();
 const { frase } = useFrases();
+
+const auth = useAuthStore();
+
+// Próximo correlativo de la nota
+const proximoCorrelativo = ref<number>(0);
+const cargandoCorrelativo = ref(false);
 
 // --- Datos para buscar el comprobante a afectar ---
 const tipoComprobanteAfectado = ref('01');
@@ -50,17 +55,29 @@ const serieNota = ref('FC01');
 const codigoMotivo = ref('01');
 const descripcionMotivo = ref('Anulación de la operación');
 
-onMounted(async () => {
-  // Si vienes con query params, precargar y recuperar automáticamente
-  if (route.query.tipo && route.query.serie && route.query.numero) {
-    tipoComprobanteAfectado.value = String(route.query.tipo);
-    serieAfectada.value = String(route.query.serie);
-    numeroAfectado.value = String(route.query.numero);
-    ajustarSerie();
-    // Recuperar automáticamente
-    await recuperar();
+// Cargar próximo correlativo según la serie de la nota
+async function cargarProximoCorrelativo() {
+  if (!serieNota.value) return;
+  
+  cargandoCorrelativo.value = true;
+  try {
+    const data = await notasService.proximoCorrelativo({
+      tipo_nota: '07',
+      serie: serieNota.value,
+    });
+    proximoCorrelativo.value = data.proximo_correlativo;
+  } catch (e) {
+    console.warn('No se pudo cargar el próximo correlativo');
+    proximoCorrelativo.value = 0;
+  } finally {
+    cargandoCorrelativo.value = false;
   }
-});
+}
+
+// Recargar cuando cambie la serie (FC01 ↔ BC01)
+watch(serieNota, cargarProximoCorrelativo);
+
+
 
 const motivos = [
   { valor: '01', texto: 'Anulación de la operación' },
@@ -203,6 +220,21 @@ async function emitir() {
     emitiendo.value = false;
   }
 }
+
+onMounted(async () => {
+  // Si vienes con query params, precargar y recuperar automáticamente
+  if (route.query.tipo && route.query.serie && route.query.numero) {
+    tipoComprobanteAfectado.value = String(route.query.tipo);
+    serieAfectada.value = String(route.query.serie);
+    numeroAfectado.value = String(route.query.numero);
+    ajustarSerie();
+    // Recuperar automáticamente
+    await recuperar();
+  }
+  
+  // Cargar próximo correlativo
+  await cargarProximoCorrelativo();
+});
 </script>
 
 <template>
@@ -211,8 +243,29 @@ async function emitir() {
       <ArrowLeft :size="18" /> Volver a notas
     </button>
 
+<div class="header-nota">
+  <div>
     <h1>Nueva nota de crédito</h1>
     <p class="pagina-subtitulo">Anula, corrige o ajusta un comprobante emitido</p>
+  </div>
+  
+  <!-- Indicador de próximo correlativo -->
+  <div class="proximo-correlativo" v-if="proximoCorrelativo > 0">
+    <span class="proximo-correlativo__label">Próximo:</span>
+    <strong class="proximo-correlativo__numero">
+      {{ serieNota }}-{{ String(proximoCorrelativo).padStart(8, '0') }}
+    </strong>
+    <span 
+      class="proximo-correlativo__ambiente"
+      :class="{
+        'proximo-correlativo__ambiente--prod': auth.esProduccion,
+        'proximo-correlativo__ambiente--beta': !auth.esProduccion,
+      }"
+    >
+      {{ auth.esProduccion ? '🔴 Producción' : '🟡 Beta' }}
+    </span>
+  </div>
+</div>
 
     <!-- PASO 1: Recuperar comprobante -->
     <div class="seccion">
@@ -443,5 +496,69 @@ async function emitir() {
   .motivo-form { grid-template-columns: 1fr; }
   .totales-card { flex-direction: column; align-items: stretch; }
   .totales { max-width: 100%; }
+}
+
+/* ============================================
+   HEADER CON INDICADOR DE CORRELATIVO
+   ============================================ */
+
+.header-nota {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+  margin-bottom: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.proximo-correlativo {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background-color: var(--bg-surface-2);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  font-size: 13px;
+  margin-top: 8px;
+}
+
+.proximo-correlativo__label {
+  color: var(--text-secondary);
+}
+
+.proximo-correlativo__numero {
+  color: var(--text-primary);
+  font-family: monospace;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.proximo-correlativo__ambiente {
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+.proximo-correlativo__ambiente--prod {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+}
+
+.proximo-correlativo__ambiente--beta {
+  background-color: rgba(245, 158, 11, 0.15);
+  color: #d97706;
+}
+
+@media (max-width: 700px) {
+  .header-nota {
+    flex-direction: column;
+  }
+  .proximo-correlativo {
+    padding: 4px 8px;
+    font-size: 12px;
+  }
 }
 </style>

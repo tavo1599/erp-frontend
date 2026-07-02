@@ -45,4 +45,26 @@ export const notasService = {
     const response = await http.get(`/notas/${id}/pdf`, { responseType: 'blob' });
     return URL.createObjectURL(response.data);
   },
+
+  async proximoCorrelativo(params: {
+  tipo_nota: string;
+  serie: string;
+}): Promise<{
+  tipo_comprobante: string;
+  serie: string;
+  ambiente: string;
+  ultimo_correlativo: number;
+  proximo_correlativo: number;
+  comprobante_proximo: string;
+}> {
+  // Reutilizamos el endpoint de ventas (sirve para cualquier tipo de comprobante)
+  const { data } = await http.get('/ventas/proximo-correlativo', {
+    params: {
+      tipo_comprobante: params.tipo_nota,
+      serie: params.serie,
+    },
+  });
+  return data;
+},
 };
+

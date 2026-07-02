@@ -152,4 +152,26 @@ async descargarCdr(id: string, nombreArchivo: string) {
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 },
+
+async proximoCorrelativo(params: {
+  tipo_comprobante: string;
+  serie: string;
+}): Promise<{
+  tipo_comprobante: string;
+  serie: string;
+  ambiente: string;
+  ultimo_correlativo: number;
+  proximo_correlativo: number;
+  comprobante_proximo: string;
+}> {
+  const { data } = await http.get('/ventas/proximo-correlativo', {
+    params,
+  });
+  return data;
+},
+
+async marcarParaAnulacion(id: string) {
+  const { data } = await http.post(`/ventas/${id}/marcar-anulacion`, {});
+  return data;
+}
 };

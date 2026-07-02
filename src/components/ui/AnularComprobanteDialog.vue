@@ -16,9 +16,10 @@ const emit = defineEmits<{
   'baja': [motivo: string];
   'nota-credito': [];
   'solo-interna': [];
+  'marcar-anulacion': [];
 }>();
 
-const opcion = ref<'baja' | 'nota' | 'interna' | null>(null);
+const opcion = ref<'baja' | 'nota' | 'interna' | 'marcar-anulacion' | null>(null);
 const motivo = ref('ANULACIÓN DE LA OPERACIÓN');
 
 watch(() => props.modelValue, (v) => {
@@ -39,6 +40,7 @@ function continuar() {
   if (opcion.value === 'baja') emit('baja', motivo.value);
   if (opcion.value === 'nota') emit('nota-credito');
   if (opcion.value === 'interna') emit('solo-interna');
+  if (opcion.value === 'marcar-anulacion') emit('marcar-anulacion');
   cerrar();
 }
 </script>
@@ -69,6 +71,17 @@ function continuar() {
                 </span>
               </div>
             </label>
+            <!-- Opción NUEVA: Marcar para anulación SUNAT (solo boletas) -->
+<label v-if="!esFactura()" class="opcion" :class="{ 'opcion--activa': opcion === 'marcar-anulacion' }">
+  <input type="radio" value="marcar-anulacion" v-model="opcion" />
+  <div class="opcion__icono opcion__icono--baja"><FileX :size="20" /></div>
+  <div class="opcion__cuerpo">
+    <span class="opcion__titulo">Marcar para anulación SUNAT</span>
+    <span class="opcion__desc">
+      Marca la boleta para anulación. Luego envía el resumen diario desde "Envíos SUNAT" para que SUNAT procese las anulaciones del día.
+    </span>
+  </div>
+</label>
 
             <!-- Opción 2: Nota de crédito -->
             <label class="opcion" :class="{ 'opcion--activa': opcion === 'nota' }">

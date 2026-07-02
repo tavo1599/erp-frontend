@@ -10,6 +10,7 @@ import BaseButton from '../components/ui/BaseButton.vue';
 import BaseSpinner from '../components/ui/BaseSpinner.vue';
 import { sunatService } from '../services/sunat.service';
 import { useFrases } from '../composables/useFrases';
+import { useAuthStore } from '../stores/auth.store';
 
 
 const { frase } = useFrases();
@@ -17,6 +18,7 @@ const textoCarga = ref(frase('configuracion'));
 
 const toast = useToast();
 const router = useRouter();
+const auth = useAuthStore();
 
 const empresa = ref<Empresa | null>(null);
 const cargando = ref(true);
@@ -106,33 +108,47 @@ onMounted(cargar);
             <span class="campo-readonly__nota">El RUC no se puede modificar</span>
           </div>
           <button
-            class="btn-actualizar"
-            :disabled="consultandoSunat"
-            @click="consultarMiRuc"
-            title="Actualizar datos desde SUNAT"
-          >
-            <Search :size="16" :class="{ 'spin': consultandoSunat }" />
-            {{ consultandoSunat ? 'Consultando...' : 'Actualizar desde SUNAT' }}
-          </button>
+  v-if="auth.tienePermiso('editar_empresa')"
+  class="btn-actualizar"
+  :disabled="consultandoSunat"
+  @click="consultarMiRuc"
+  title="Actualizar datos desde SUNAT"
+>
+  <Search :size="16" :class="{ 'spin': consultandoSunat }" />
+  {{ consultandoSunat ? 'Consultando...' : 'Actualizar desde SUNAT' }}
+</button>
         </div>
 
         <!-- Acceso a Seguridad SUNAT -->
-        <div class="config-panel config-panel--enlace" @click="router.push('/seguridad')">
-          <div class="enlace-seg">
-            <Shield :size="22" class="enlace-seg__icono" />
-            <div class="enlace-seg__texto">
-              <h3 class="config-panel__titulo">Seguridad SUNAT</h3>
-              <p class="config-nota">Certificado digital, credenciales SOL y ambiente de emisión.</p>
-            </div>
-          </div>
-        </div>
+        <!-- Acceso a Seguridad SUNAT (solo si tiene permiso) -->
+<div 
+  v-if="auth.tienePermiso('editar_credenciales_sunat')"
+  class="config-panel config-panel--enlace" 
+  @click="router.push('/seguridad')"
+>
+  <div class="enlace-seg">
+    <Shield :size="22" class="enlace-seg__icono" />
+    <div class="enlace-seg__texto">
+      <h3 class="config-panel__titulo">Seguridad SUNAT</h3>
+      <p class="config-nota">Certificado digital, credenciales SOL y ambiente de emisión.</p>
+    </div>
+  </div>
+</div>
 
         <!-- Datos generales (ocupa las dos columnas) -->
         <div class="config-panel" style="grid-column: 1 / -1;">
           <h3 class="config-panel__titulo">Datos generales</h3>
           <div class="config-grid">
-            <BaseInput v-model="empresa.razon_social" label="Razón social" />
-            <BaseInput v-model="empresa.nombre_comercial" label="Nombre comercial" />
+            <BaseInput 
+  v-model="empresa.razon_social" 
+  label="Razón social" 
+  :disabled="!auth.tienePermiso('editar_empresa')"
+/>
+<BaseInput 
+  v-model="empresa.nombre_comercial" 
+  label="Nombre comercial" 
+  :disabled="!auth.tienePermiso('editar_empresa')"
+/>
           </div>
           <BaseInput v-model="empresa.direccion" label="Dirección fiscal" />
         </div>
@@ -149,11 +165,11 @@ onMounted(cargar);
         </div>
       </div>
 
-      <div class="config-acciones">
-        <BaseButton :cargando="guardando" @click="guardar">
-          <Save :size="18" /> Guardar cambios
-        </BaseButton>
-      </div>
+      <div v-if="auth.tienePermiso('editar_empresa')" class="config-acciones">
+  <BaseButton :cargando="guardando" @click="guardar">
+    <Save :size="18" /> Guardar cambios
+  </BaseButton>
+</div>
     </div>
   </div>
 </template>

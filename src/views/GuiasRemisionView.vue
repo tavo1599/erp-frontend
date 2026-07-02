@@ -17,11 +17,13 @@ import BaseTable from '../components/ui/BaseTable.vue';
 import BaseButton from '../components/ui/BaseButton.vue';
 import BaseInput from '../components/ui/BaseInput.vue';
 import BaseSelect from '../components/ui/BaseSelect.vue';
+import { useAuthStore } from '../stores/auth.store';
 
 const router = useRouter();
 const { fecha } = useFormato();
 const toast = useToast();
 const { frase } = useFrases();
+const auth = useAuthStore();
 
 const guias = ref<GuiaLista[]>([]);
 const cargando = ref(true);
@@ -115,9 +117,12 @@ onMounted(cargar);
           Filtros
           <span v-if="hayFiltrosActivos" class="filtro-badge"></span>
         </BaseButton>
-        <BaseButton @click="router.push('/guias-remision/nueva')">
-          <Plus :size="18" /> Nueva guía
-        </BaseButton>
+        <BaseButton 
+  v-if="auth.tienePermiso('crear_guias')"
+  @click="router.push('/guias-remision/nueva')"
+>
+  <Plus :size="18" /> Nueva guía
+</BaseButton>
       </div>
     </div>
 

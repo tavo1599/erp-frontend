@@ -13,12 +13,14 @@ import BaseInput from '../components/ui/BaseInput.vue';
 import BaseSelect from '../components/ui/BaseSelect.vue';
 import { useToast } from '../composables/useToast';
 import { useConfirm } from '../composables/useConfirm';
+import { useAuthStore } from '../stores/auth.store';
 
 
 const toast = useToast();
 const { confirmar } = useConfirm();
 
 const { moneda, fecha } = useFormato();
+const auth = useAuthStore();
 
 const compras = ref<CompraLista[]>([]);
 const proveedores = ref<Proveedor[]>([]);
@@ -151,7 +153,12 @@ onMounted(cargar);
         <h1>Compras</h1>
         <p class="pagina-subtitulo">Registro de compras a proveedores</p>
       </div>
-      <BaseButton @click="abrirModal"><Plus :size="18" /> Nueva compra</BaseButton>
+      <BaseButton 
+  v-if="auth.tienePermiso('crear_compras')"
+  @click="abrirModal"
+>
+  <Plus :size="18" /> Nueva compra
+</BaseButton>
     </div>
 
     <BaseTable :columnas="columnas" :filas="compras" :cargando="cargando" texto-vacio="No has registrado compras aún.">
@@ -162,15 +169,15 @@ onMounted(cargar);
         <span class="badge" :class="valor === 'ANULADA' ? 'badge--error' : 'badge--ok'">{{ valor }}</span>
       </template>
       <template #acciones="{ fila }">
-        <button
-          v-if="fila.estado !== 'ANULADA'"
-          class="btn-icono btn-icono--danger"
-          @click="anularCompra(fila)"
-          title="Anular compra"
-        >
-          <Trash2 :size="18" />
-        </button>
-      </template>
+  <button
+    v-if="fila.estado !== 'ANULADA' && auth.tienePermiso('crear_compras')"
+    class="btn-icono btn-icono--danger"
+    @click="anularCompra(fila)"
+    title="Anular compra"
+  >
+    <Trash2 :size="18" />
+  </button>
+</template>
     </BaseTable>
 
     <!-- Modal registrar compra -->

@@ -89,4 +89,17 @@ async previewPdf(personalizacion: {
   });
   return URL.createObjectURL(response.data);
 },
+
+async verificarConfiguracion() {
+  const { data } = await http.get('/empresas/mi-empresa/verificar-configuracion');
+  return data as {
+    empresa_id: string;
+    ruc: string;
+    razon_social: string;
+    ambiente: string;
+    tiene_credenciales_sol: boolean;
+    todo_listo: boolean;
+    faltantes: string[];
+  };
+},
 };

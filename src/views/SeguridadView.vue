@@ -7,13 +7,16 @@ import { useToast } from '../composables/useToast';
 import { useConfirm } from '../composables/useConfirm';
 import BaseInput from '../components/ui/BaseInput.vue';
 import BaseButton from '../components/ui/BaseButton.vue';
-import BaseSpinner from '../components/ui/BaseSpinner.vue';import { useFrases } from '../composables/useFrases';
+import BaseSpinner from '../components/ui/BaseSpinner.vue';
+import { useFrases } from '../composables/useFrases';
+import { useAuthStore } from '../stores/auth.store';
 
 const { frase } = useFrases();
 const textoCarga = ref(frase('seguridad'));
 
 const toast = useToast();
 const { confirmar } = useConfirm();
+const auth = useAuthStore();
 
 const empresa = ref<Empresa | null>(null);
 const cargando = ref(true);
@@ -107,12 +110,64 @@ async function cambiarAmbiente(nuevo: string) {
   if (!empresa.value) return;
   if (nuevo === empresa.value.ambiente) return;
 
+  // ========================================================
+  // CAMBIO A PRODUCCIÓN: validar prerrequisitos
+  // ========================================================
   if (nuevo === 'produccion') {
+    // Validar credenciales SOL (no MODDATOS y existen)
+    const tieneSolReal = empresa.value.sol_usuario 
+      && empresa.value.sol_usuario.toUpperCase() !== 'MODDATOS';
+    
+    if (!tieneSolReal) {
+      const irAConfigurar = await confirmar({
+        titulo: '⚠️ No puedes activar producción aún',
+        mensaje: 'Para emitir en producción necesitas configurar:\n\n' +
+                 '• Usuario SOL del RUC real (no MODDATOS)\n' +
+                 '• Clave SOL del RUC real\n' +
+                 '• Certificado digital (.pfx) del titular del RUC\n\n' +
+                 'Las credenciales actuales son de pruebas. ¿Quieres configurarlas ahora?',
+        textoConfirmar: 'Configurar credenciales',
+        textoCancelar: 'Cancelar',
+      });
+      if (irAConfigurar) {
+        // Hacer scroll al panel de credenciales
+        const panelCredenciales = document.querySelectorAll('.seg-panel')[2];
+        panelCredenciales?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      return;
+    }
+
+    // Confirmación completa
     const ok = await confirmar({
-      titulo: '¿Activar ambiente de PRODUCCIÓN?',
-      mensaje: 'En producción, los comprobantes que emitas tienen validez tributaria REAL ante SUNAT y no se pueden borrar (solo anular con baja o nota de crédito). Asegúrate de tener el certificado digital real y las credenciales SOL correctas. ¿Continuar?',
+      titulo: '🚨 Activar PRODUCCIÓN',
+      mensaje: 'Los comprobantes que emitas a partir de ahora serán REALES.\n\n' +
+               'Importante:\n' +
+               '• Se reportarán a SUNAT con validez fiscal\n' +
+               '• No se pueden borrar (solo anular)\n' +
+               '• Los correlativos en producción son independientes de beta\n' +
+               '• Tu primer comprobante producción empezará desde el siguiente correlativo guardado\n\n' +
+               'Asegúrate de tener:\n' +
+               '✓ Certificado digital subido (RUC correcto)\n' +
+               '✓ Usuario SOL del RUC real\n' +
+               '✓ Clave SOL del RUC real\n\n' +
+               '¿Estás 100% seguro?',
       textoConfirmar: 'Sí, activar producción',
       peligro: true,
+    });
+    if (!ok) return;
+  }
+
+  // ========================================================
+  // CAMBIO A BETA: confirmación simple
+  // ========================================================
+  if (nuevo === 'beta') {
+    const ok = await confirmar({
+      titulo: '🧪 Volver a Beta',
+      mensaje: 'Los próximos comprobantes que emitas serán de prueba (sin validez fiscal).\n\n' +
+               'Tus comprobantes de producción se mantienen intactos en SUNAT.\n\n' +
+               'Solo cambia a beta si quieres hacer pruebas con datos de prueba.\n\n' +
+               '¿Continuar?',
+      textoConfirmar: 'Sí, volver a beta',
     });
     if (!ok) return;
   }
@@ -121,7 +176,17 @@ async function cambiarAmbiente(nuevo: string) {
   try {
     await empresaService.actualizar({ ambiente: nuevo });
     empresa.value.ambiente = nuevo;
-    toast.exito(`Ambiente cambiado a ${nuevo === 'produccion' ? 'PRODUCCIÓN' : 'pruebas'}`);
+    
+    // Actualizar el ambiente en el auth store para refrescar el indicador del header
+    if (auth.empresaActual) {
+      auth.empresaActual.ambiente = nuevo;
+    }
+    
+    toast.exito(
+      nuevo === 'produccion' 
+        ? '🚨 PRODUCCIÓN activada. Cuidado al emitir.'
+        : '🧪 Modo Beta activado. Comprobantes de prueba.'
+    );
   } catch (e: any) {
     toast.error('No se pudo cambiar el ambiente');
   } finally {
@@ -167,23 +232,29 @@ onMounted(cargar);
         </p>
         <div class="amb-selector">
           <button
-            class="amb-opcion"
-            :class="{ 'amb-opcion--activa': empresa.ambiente !== 'produccion' }"
-            :disabled="guardandoAmbiente"
-            @click="cambiarAmbiente('beta')"
-          >
-            <span class="amb-opcion__nombre">Pruebas (beta)</span>
-            <span class="amb-opcion__desc">Para probar sin afectar tu información tributaria real</span>
-          </button>
+  class="amb-opcion"
+  :class="{ 'amb-opcion--activa': empresa.ambiente !== 'produccion' }"
+  :disabled="guardandoAmbiente"
+  @click="cambiarAmbiente('beta')"
+>
+  <span class="amb-opcion__nombre">
+    🧪 Pruebas (beta)
+    <span v-if="empresa.ambiente !== 'produccion'" class="amb-opcion__badge">Activo</span>
+  </span>
+  <span class="amb-opcion__desc">Para probar sin afectar tu información tributaria real</span>
+</button>
           <button
-            class="amb-opcion"
-            :class="{ 'amb-opcion--activa': empresa.ambiente === 'produccion', 'amb-opcion--prod': empresa.ambiente === 'produccion' }"
-            :disabled="guardandoAmbiente"
-            @click="cambiarAmbiente('produccion')"
-          >
-            <span class="amb-opcion__nombre">Producción</span>
-            <span class="amb-opcion__desc">Comprobantes REALES con validez ante SUNAT</span>
-          </button>
+  class="amb-opcion"
+  :class="{ 'amb-opcion--activa': empresa.ambiente === 'produccion', 'amb-opcion--prod': empresa.ambiente === 'produccion' }"
+  :disabled="guardandoAmbiente"
+  @click="cambiarAmbiente('produccion')"
+>
+  <span class="amb-opcion__nombre">
+    🚨 Producción
+    <span v-if="empresa.ambiente === 'produccion'" class="amb-opcion__badge amb-opcion__badge--prod">Activo</span>
+  </span>
+  <span class="amb-opcion__desc">Comprobantes REALES con validez ante SUNAT</span>
+</button>
         </div>
       </div>
 
@@ -317,5 +388,19 @@ onMounted(cargar);
 .acciones { display: flex; gap: var(--space-sm); justify-content: flex-end; }
 @media (max-width: 700px) {
   .amb-selector, .form-grid { grid-template-columns: 1fr; }
+}.amb-opcion__badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  background: var(--success-soft);
+  color: var(--success);
+  font-weight: 700;
+}
+
+.amb-opcion__badge--prod {
+  background: var(--danger-soft);
+  color: var(--danger);
 }
 </style>

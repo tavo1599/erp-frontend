@@ -11,9 +11,11 @@ import BaseSelect from '../components/ui/BaseSelect.vue';
 import { useToast } from '../composables/useToast';
 import { useConfirm } from '../composables/useConfirm';
 import { sunatService } from '../services/sunat.service';
+import { useAuthStore } from '../stores/auth.store';
 
 const toast = useToast();
 const consultandoSunat = ref(false);
+const auth = useAuthStore();
 
 const clientes = ref<Cliente[]>([]);
 const cargando = ref(true);
@@ -162,9 +164,12 @@ onMounted(cargar);
         <h1>Clientes</h1>
         <p class="pagina-subtitulo">Administra tus clientes</p>
       </div>
-      <BaseButton @click="abrirModalCrear">
-        <Plus :size="18" /> Nuevo cliente
-      </BaseButton>
+      <BaseButton 
+  v-if="auth.tienePermiso('crear_clientes')"
+  @click="abrirModalCrear"
+>
+  <Plus :size="18" /> Nuevo cliente
+</BaseButton>
     </div>
 
     <div class="barra-busqueda">
@@ -182,15 +187,25 @@ onMounted(cargar);
       </template>
       <!-- El slot de acciones va AQUÍ, dentro de la tabla -->
       <template #acciones="{ fila }">
-        <div style="display: flex; gap: 6px; justify-content: center;">
-          <button class="btn-icono" @click="abrirModalEditar(fila)" title="Editar">
-            <Pencil :size="18" />
-          </button>
-          <button class="btn-icono btn-icono--danger" @click="desactivar(fila)" title="Desactivar">
-            <Trash2 :size="18" />
-          </button>
-        </div>
-      </template>
+  <div style="display: flex; gap: 6px; justify-content: center;">
+    <button 
+      v-if="auth.tienePermiso('editar_clientes')"
+      class="btn-icono" 
+      @click="abrirModalEditar(fila)" 
+      title="Editar"
+    >
+      <Pencil :size="18" />
+    </button>
+    <button 
+      v-if="auth.tienePermiso('editar_clientes')"
+      class="btn-icono btn-icono--danger" 
+      @click="desactivar(fila)" 
+      title="Desactivar"
+    >
+      <Trash2 :size="18" />
+    </button>
+  </div>
+</template>
     </BaseTable>
 
     <BaseModal v-model="modalAbierto" :titulo="editandoId ? 'Editar cliente' : 'Nuevo cliente'">

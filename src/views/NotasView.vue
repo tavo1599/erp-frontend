@@ -10,11 +10,13 @@ import { useToast } from '../composables/useToast';
 import { useRouter } from 'vue-router';
 import { Plus } from 'lucide-vue-next';
 import BaseButton from '../components/ui/BaseButton.vue';
+import { useAuthStore } from '../stores/auth.store';
 
 const router = useRouter();
 
 const { moneda, fecha } = useFormato();
 const toast = useToast();
+const auth = useAuthStore();
 
 const notas = ref<NotaLista[]>([]);
 const cargando = ref(true);
@@ -70,9 +72,12 @@ onMounted(cargar);
         <h1>Notas de crédito y débito</h1>
         <p class="pagina-subtitulo">Comprobantes de ajuste emitidos</p>
       </div>
-      <BaseButton @click="router.push('/notas/nueva-credito')">
-        <Plus :size="18" /> Nueva nota de crédito
-      </BaseButton>
+      <BaseButton 
+  v-if="auth.tienePermiso('crear_notas')"
+  @click="router.push('/notas/nueva-credito')"
+>
+  <Plus :size="18" /> Nueva nota de crédito
+</BaseButton>
     </div>
 
     <BaseTabs :model-value="filtro" :pestanas="filtros" @update:model-value="cambiarFiltro" />
@@ -86,10 +91,15 @@ onMounted(cargar);
         }">{{ valor }}</span>
       </template>
       <template #acciones="{ fila }">
-        <button v-if="fila.estado_sunat === 'ACEPTADO'" class="btn-icono" @click="verPdf(fila.id)" title="Ver PDF">
-          <FileText :size="18" />
-        </button>
-      </template>
+  <button 
+    v-if="fila.estado_sunat === 'ACEPTADO' && auth.tienePermiso('descargar_pdf_xml')" 
+    class="btn-icono" 
+    @click="verPdf(fila.id)" 
+    title="Ver PDF"
+  >
+    <FileText :size="18" />
+  </button>
+</template>
     </BaseTable>
   </div>
 </template>

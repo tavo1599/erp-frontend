@@ -12,10 +12,12 @@ import BaseSelect from '../components/ui/BaseSelect.vue';
 import { useToast } from '../composables/useToast';
 import { kardexService, type MovimientoKardex } from '../services/kardex.service';
 import { useConfirm } from '../composables/useConfirm';
+import { useAuthStore } from '../stores/auth.store';
 
 const toast = useToast();
 const { confirmar } = useConfirm();
 const { moneda, numero, fecha } = useFormato();
+const auth = useAuthStore();
 
 // ============== ESTADO ==============
 const productos = ref<Producto[]>([]);
@@ -190,9 +192,12 @@ onMounted(cargar);
         <h1>Productos</h1>
         <p class="pagina-subtitulo">Gestiona tu catálogo de productos</p>
       </div>
-      <BaseButton @click="abrirModalCrear">
-        <Plus :size="18" /> Nuevo producto
-      </BaseButton>
+      <BaseButton 
+  v-if="auth.tienePermiso('crear_productos')"
+  @click="abrirModalCrear"
+>
+  <Plus :size="18" /> Nuevo producto
+</BaseButton>
     </div>
 
     <!-- Buscador -->
@@ -225,18 +230,37 @@ onMounted(cargar);
         </span>
       </template>
       <template #acciones="{ fila }">
-        <div class="acciones-fila">
-          <button class="btn-icono" @click="abrirModalEditar(fila)" title="Editar">
-            <Pencil :size="18" />
-          </button>
-          <button class="btn-icono" @click="verKardex(fila)" title="Ver movimientos">
-            <History :size="18" />
-          </button>
-          <button class="btn-icono btn-icono--danger" @click="desactivarProducto(fila)" title="Desactivar">
-            <Trash2 :size="18" />
-          </button>
-        </div>
-      </template>
+  <div class="acciones-fila">
+    <!-- Editar: requiere permiso editar_productos -->
+    <button 
+      v-if="auth.tienePermiso('editar_productos')"
+      class="btn-icono" 
+      @click="abrirModalEditar(fila)" 
+      title="Editar"
+    >
+      <Pencil :size="18" />
+    </button>
+    
+    <!-- Ver kardex: requiere ver_productos (ya lo tiene si llegó aquí) -->
+    <button 
+      class="btn-icono" 
+      @click="verKardex(fila)" 
+      title="Ver movimientos"
+    >
+      <History :size="18" />
+    </button>
+    
+    <!-- Desactivar: requiere permiso eliminar_productos -->
+    <button 
+      v-if="auth.tienePermiso('eliminar_productos')"
+      class="btn-icono btn-icono--danger" 
+      @click="desactivarProducto(fila)" 
+      title="Desactivar"
+    >
+      <Trash2 :size="18" />
+    </button>
+  </div>
+</template>
     </BaseTable>
 
     <!-- Modal crear/editar producto -->

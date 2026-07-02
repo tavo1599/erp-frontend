@@ -116,15 +116,25 @@ async function enviarResumen() {
   enviandoResumen.value = true;
   try {
     const data = await resumenesService.enviar(fechaNuevoResumen.value);
-    if (data.estado === 'PENDIENTE') {
-      toast.exito(`Resumen enviado. Ticket: ${data.ticket}`);
-    } else {
-      toast.error(data.error || 'No se pudo enviar el resumen');
-    }
+    
+    // Si llega aquí, siempre se obtuvo ticket (backend lanza throw si falla)
+    toast.exito(`Resumen enviado. Ticket: ${data.ticket}`);
     modalNuevoResumen.value = false;
     await cargarTodo();
+    
   } catch (e: any) {
-    toast.error(e.response?.data?.message || 'Error al enviar el resumen');
+    // Manejo mejorado de errores
+    const errorData = e.response?.data?.message;
+    
+    if (errorData?.sunat_descripcion) {
+      toast.error(`SUNAT rechazó: ${errorData.sunat_descripcion}`);
+    } else if (errorData?.mensaje) {
+      toast.error(errorData.mensaje);
+    } else if (typeof errorData === 'string') {
+      toast.error(errorData);
+    } else {
+      toast.error('Error al enviar el resumen');
+    }
   } finally {
     enviandoResumen.value = false;
   }
@@ -152,8 +162,8 @@ onMounted(cargarTodo);
           <RefreshCw :size="18" /> Actualizar
         </BaseButton>
         <BaseButton @click="abrirNuevoResumen">
-          <Send :size="18" /> Nuevo resumen
-        </BaseButton>
+  <Send :size="18" /> Enviar anulaciones
+</BaseButton>
       </div>
     </div>
 
@@ -217,12 +227,15 @@ onMounted(cargarTodo);
     </BaseTable>
 
     <!-- Modal nuevo resumen -->
-    <BaseModal v-model="modalNuevoResumen" titulo="Enviar resumen diario de boletas">
+    <BaseModal v-model="modalNuevoResumen" titulo="Enviar resumen de anulación de boletas">
       <div class="form">
         <p class="form__info">
-          Selecciona la fecha de las boletas que deseas informar a SUNAT.
-          Se incluirán todas las boletas aceptadas emitidas ese día.
-        </p>
+  <strong>Resumen de Anulación de Boletas</strong>
+  <br>
+  Selecciona la fecha donde tienes boletas marcadas para anular. SUNAT recibirá la lista de boletas a anular.
+  <br>
+  <small>Solo se incluirán boletas marcadas como "Pendiente anulación".</small>
+</p>
         <BaseInput v-model="fechaNuevoResumen" label="Fecha de las boletas" tipo="date" />
       </div>
       <template #footer>

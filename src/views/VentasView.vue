@@ -4,7 +4,7 @@ import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import {
   Plus, FileText, Eye, Trash2, Receipt, Filter, X,
-  CheckCircle2, XCircle, Ban, Download, AlertTriangle
+  CheckCircle2, XCircle, Ban, Download, AlertTriangle, Clock
 } from 'lucide-vue-next';
 import { excelService } from '../services/excel.service';
 import { ventasService, type VentaLista } from '../services/ventas.service';
@@ -12,6 +12,7 @@ import { useFormato } from '../composables/useFormato';
 import { useConfirm } from '../composables/useConfirm';
 import { useToast } from '../composables/useToast';
 import { useFrases } from '../composables/useFrases';
+import { useAuthStore } from '../stores/auth.store';
 import BaseTable from '../components/ui/BaseTable.vue';
 import BaseButton from '../components/ui/BaseButton.vue';
 import BaseSelect from '../components/ui/BaseSelect.vue';
@@ -23,6 +24,7 @@ const { moneda, fecha } = useFormato();
 const { confirmar } = useConfirm();
 const toast = useToast();
 const { frase } = useFrases();
+const auth = useAuthStore();
 
 // ============== ESTADO ==============
 const ventas = ref<VentaLista[]>([]);
@@ -192,6 +194,34 @@ async function ejecutarBaja(motivo: string) {
   }
 }
 
+async function ejecutarMarcarAnulacion() {
+  const venta = ventaParaAnular.value;
+  if (!venta) return;
+  
+  const ok = await confirmar({
+    titulo: '¿Marcar boleta para anulación?',
+    mensaje: `La boleta ${venta.comprobante} se marcará como PENDIENTE de anulación. Para anularla en SUNAT, debes ir a "Envíos SUNAT" y enviar el resumen diario.`,
+    textoConfirmar: 'Sí, marcar',
+    peligro: true,
+  });
+  if (!ok) return;
+  
+  try {
+    await ventasService.marcarParaAnulacion(venta.id);
+    toast.exito('Boleta marcada para anulación. Envía el resumen diario para procesarla en SUNAT.');
+    await cargar();
+  } catch (e: any) {
+    const errorData = e.response?.data?.message;
+    if (errorData?.mensaje) {
+      toast.error(errorData.mensaje);
+    } else if (typeof errorData === 'string') {
+      toast.error(errorData);
+    } else {
+      toast.error('No se pudo marcar la boleta');
+    }
+  }
+}
+
 function ejecutarNotaCredito() {
   const venta = ventaParaAnular.value;
   if (!venta) return;
@@ -268,16 +298,20 @@ onMounted(cargar);
         
         <!-- NUEVO botón -->
         <BaseButton
-          variant="secondary"
-          @click="exportarExcel"
-          :disabled="ventas.length === 0"
-        >
-          <Download :size="18" /> Excel
-        </BaseButton>
+  v-if="auth.tienePermiso('descargar_pdf_xml')"
+  variant="secondary"
+  @click="exportarExcel"
+  :disabled="ventas.length === 0"
+>
+  <Download :size="18" /> Excel
+</BaseButton>
         
-        <BaseButton @click="router.push('/ventas/nueva')">
-          <Plus :size="18" /> Nueva venta
-        </BaseButton>
+        <BaseButton 
+  v-if="auth.tienePermiso('crear_ventas')"
+  @click="router.push('/ventas/nueva')"
+>
+  <Plus :size="18" /> Nueva venta
+</BaseButton>
       </div>
     </div>
 
@@ -319,56 +353,68 @@ onMounted(cargar);
       </template>
       <template #importe_total="{ valor }"><strong>{{ moneda(valor) }}</strong></template>
       <template #estado_sunat="{ valor }">
-        <span class="estado" :class="{
-          'estado--ok': valor === 'ACEPTADO',
-          'estado--error': valor === 'RECHAZADO',
-          'estado--anulada': valor === 'ANULADA',
-        }">
-          <CheckCircle2 v-if="valor === 'ACEPTADO'" :size="14" />
-          <XCircle v-if="valor === 'RECHAZADO'" :size="14" />
-          <Ban v-if="valor === 'ANULADA'" :size="14" />
-          {{ valor }}
-        </span>
-      </template>
+  <span class="estado" :class="{
+    'estado--ok': valor === 'ACEPTADO',
+    'estado--error': valor === 'RECHAZADO',
+    'estado--anulada': valor === 'ANULADA',
+    'estado--pend-anulacion': valor === 'PENDIENTE_ANULACION',
+  }">
+    <CheckCircle2 v-if="valor === 'ACEPTADO'" :size="14" />
+    <XCircle v-if="valor === 'RECHAZADO'" :size="14" />
+    <Ban v-if="valor === 'ANULADA'" :size="14" />
+    <Clock v-if="valor === 'PENDIENTE_ANULACION'" :size="14" />
+    {{ valor === 'PENDIENTE_ANULACION' ? 'Pend. anulación' : valor }}
+  </span>
+</template>
       <template #acciones="{ fila }">
-        <div class="acciones-fila">
-          <button class="btn-icono" @click="verDetalle(fila.id)" title="Ver detalle">
-            <Eye :size="18" />
-          </button>
-          <button v-if="fila.estado_sunat === 'ACEPTADO'"
-            class="btn-icono"
-            @click="verPdf(fila.id, 'a4')"
-            title="Descargar A4">
-            <FileText :size="18" />
-          </button>
-          <button v-if="fila.estado_sunat === 'ACEPTADO'"
-            class="btn-icono"
-            @click="verPdf(fila.id, 'ticket')"
-            title="Descargar ticket 80mm">
-            <Receipt :size="18" />
-          </button>
-          <button
-            v-if="fila.estado_sunat !== 'ANULADA'"
-            class="btn-icono btn-icono--danger"
-            @click="abrirDialogAnular(fila)"
-            title="Anular venta"
-          >
-            <Trash2 :size="18" />
-          </button>
-        </div>
-      </template>
+  <div class="acciones-fila">
+    <!-- Ver detalle: todos los que pueden ver_ventas (ya tienen permiso por backend) -->
+    <button class="btn-icono" @click="verDetalle(fila.id)" title="Ver detalle">
+      <Eye :size="18" />
+    </button>
+    
+    <!-- PDF: requiere permiso descargar_pdf_xml -->
+    <button 
+      v-if="fila.estado_sunat === 'ACEPTADO' && auth.tienePermiso('descargar_pdf_xml')"
+      class="btn-icono"
+      @click="verPdf(fila.id, 'a4')"
+      title="Descargar A4"
+    >
+      <FileText :size="18" />
+    </button>
+    <button 
+      v-if="fila.estado_sunat === 'ACEPTADO' && auth.tienePermiso('descargar_pdf_xml')"
+      class="btn-icono"
+      @click="verPdf(fila.id, 'ticket')"
+      title="Descargar ticket 80mm"
+    >
+      <Receipt :size="18" />
+    </button>
+    
+    <!-- Anular: requiere permiso anular_ventas -->
+    <button
+  v-if="fila.estado_sunat !== 'ANULADA' && fila.estado_sunat !== 'PENDIENTE_ANULACION' && auth.tienePermiso('anular_ventas')"
+  class="btn-icono btn-icono--danger"
+  @click="abrirDialogAnular(fila)"
+  title="Anular venta"
+>
+  <Trash2 :size="18" />
+</button>
+  </div>
+</template>
     </BaseTable>
 
     <!-- Modal de decisión para anular -->
     <AnularComprobanteDialog
-      v-if="ventaParaAnular"
-      v-model="dialogAnularAbierto"
-      :tipo-comprobante="ventaParaAnular.tipo_comprobante"
-      :comprobante="ventaParaAnular.comprobante"
-      @baja="ejecutarBaja"
-      @nota-credito="ejecutarNotaCredito"
-      @solo-interna="ejecutarSoloInterna"
-    />
+  v-if="ventaParaAnular"
+  v-model="dialogAnularAbierto"
+  :tipo-comprobante="ventaParaAnular.tipo_comprobante"
+  :comprobante="ventaParaAnular.comprobante"
+  @baja="ejecutarBaja"
+  @nota-credito="ejecutarNotaCredito"
+  @solo-interna="ejecutarSoloInterna"
+  @marcar-anulacion="ejecutarMarcarAnulacion"
+/>
   </div>
 </template>
 
@@ -475,6 +521,12 @@ onMounted(cargar);
 .estado--ok { background: var(--success-soft); color: var(--success); }
 .estado--error { background: var(--danger-soft); color: var(--danger); }
 .estado--anulada { background: var(--warning-soft); color: var(--warning); }
+
+.estado--pend-anulacion { 
+  background: rgba(245, 158, 11, 0.15); 
+  color: #d97706; 
+  font-weight: 700;
+}
 
 /* Link de comprobante */
 .link-comprobante {

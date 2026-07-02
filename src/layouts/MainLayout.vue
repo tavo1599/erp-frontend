@@ -49,7 +49,7 @@ const menu = [
   { nombre: 'Direcciones', icono: MapPin, ruta: '/direcciones-traslado', permiso: 'ver_guias' },
   { nombre: 'Guías de remisión', icono: Truck, ruta: '/guias-remision', permiso: 'ver_guias' },
   { nombre: 'Finanzas', icono: Wallet, ruta: '/finanzas', permiso: 'ver_finanzas' },
-  { nombre: 'Envíos SUNAT', icono: Ticket, ruta: '/tickets-sunat', permiso: null },
+  { nombre: 'Envíos SUNAT', icono: Ticket, ruta: '/tickets-sunat', permiso: 'ver_ventas' },
   { nombre: 'Configuración', icono: Settings, ruta: '/configuracion', permiso: 'editar_empresa' },
   { nombre: 'Seguridad SUNAT', icono: Shield, ruta: '/seguridad', permiso: 'editar_credenciales_sunat' },
   { nombre: 'Permisos', icono: ShieldCheck, ruta: '/permisos', permiso: 'gestionar_permisos' },

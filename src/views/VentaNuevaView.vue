@@ -1,7 +1,8 @@
 <!-- src/views/VentaNuevaView.vue -->
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
+import { useAuthStore } from '../stores/auth.store';
 import { Plus, Trash2, ArrowLeft, FileText, Receipt, CreditCard } from 'lucide-vue-next';
 import { ventasService } from '../services/ventas.service';
 import { clientesService, type Cliente } from '../services/clientes.service';
@@ -10,10 +11,49 @@ import { useFormato } from '../composables/useFormato';
 import { useToast } from '../composables/useToast';
 import BaseButton from '../components/ui/BaseButton.vue';
 import BaseSelect from '../components/ui/BaseSelect.vue';
+import { empresaService } from '../services/empresa.service';
 
 const router = useRouter();
 const { moneda } = useFormato();
 const toast = useToast();
+
+const auth = useAuthStore();
+
+// Próximo correlativo
+const proximoCorrelativo = ref<number>(0);
+const cargandoCorrelativo = ref(false);
+
+const configuracion = ref<any>(null);
+const cargandoConfig = ref(false);
+
+async function verificarConfig() {
+  cargandoConfig.value = true;
+  try {
+    configuracion.value = await empresaService.verificarConfiguracion();
+  } catch (e) {
+    console.warn('No se pudo verificar configuración');
+  } finally {
+    cargandoConfig.value = false;
+  }
+}
+
+async function cargarProximoCorrelativo() {
+  if (!serie.value || !tipoComprobante.value) return;
+  
+  cargandoCorrelativo.value = true;
+  try {
+    const data = await ventasService.proximoCorrelativo({
+      tipo_comprobante: tipoComprobante.value,
+      serie: serie.value,
+    });
+    proximoCorrelativo.value = data.proximo_correlativo;
+  } catch (e) {
+    console.warn('No se pudo cargar el próximo correlativo');
+    proximoCorrelativo.value = 0;
+  } finally {
+    cargandoCorrelativo.value = false;
+  }
+}
 
 // ============================================================
 // DATOS BASE
@@ -238,6 +278,9 @@ async function emitir() {
     // Ahora SIEMPRE que llegue aquí, fue ACEPTADO (el backend lanza throw si rechaza)
     resultado.value = data;
     toast.exito(`Comprobante ${data.comprobante} aceptado por SUNAT`);
+
+    // Refrescar el próximo correlativo
+    await cargarProximoCorrelativo();
     
   } catch (e: any) {
     // Manejo mejorado: distinguir si es rechazo SUNAT o error del sistema
@@ -276,6 +319,13 @@ async function verPdf(formato: 'a4' | 'ticket' = 'a4') {
 onMounted(async () => {
   clientes.value = await clientesService.listar();
   productos.value = await productosService.listar();
+  verificarConfig();
+  await cargarProximoCorrelativo();
+});
+
+// Recargar correlativo cuando cambie el tipo de comprobante (factura/boleta)
+watch(tipoComprobante, () => {
+  cargarProximoCorrelativo();
 });
 </script>
 
@@ -312,15 +362,58 @@ onMounted(async () => {
 
     <!-- Formulario de emisión -->
     <div v-else class="emision">
+
+      <!-- Advertencia si falta configuración -->
+<div
+  v-if="configuracion && !configuracion.todo_listo"
+  class="alerta-config"
+>
+  <div class="alerta-config__icono">⚠️</div>
+  <div class="alerta-config__contenido">
+    <h4>Tu empresa no está lista para emitir</h4>
+    <p>Falta configurar:</p>
+    <ul>
+      <li v-if="configuracion.faltantes.includes('credenciales_sol')">
+        Credenciales SOL (usuario y clave de SUNAT)
+      </li>
+      <li v-if="configuracion.faltantes.includes('certificado')">
+        Certificado digital (.pfx)
+      </li>
+    </ul>
+    <button class="alerta-config__btn" @click="router.push('/empresa')">
+      Ir a configurar empresa →
+    </button>
+  </div>
+</div>
       <!-- Datos del comprobante -->
-      <div class="panel">
-        <h3 class="panel__titulo">Datos del comprobante</h3>
-        <div class="panel__grid">
-          <BaseSelect v-model="tipoComprobante" label="Tipo" :opciones="tiposComprobante" />
-          <BaseSelect v-model="clienteId" label="Cliente" :opciones="opcionesClientes" placeholder="Selecciona un cliente" />
-          <BaseSelect v-model="condicionPago" label="Condición de pago" :opciones="condicionesPago" />
-        </div>
-      </div>
+<div class="panel">
+  <div class="panel__head">
+    <h3 class="panel__titulo">Datos del comprobante</h3>
+    
+    <!-- Indicador de próximo correlativo -->
+    <div class="proximo-correlativo" v-if="proximoCorrelativo > 0">
+      <span class="proximo-correlativo__label">Próximo:</span>
+      <strong class="proximo-correlativo__numero">
+        {{ serie }}-{{ String(proximoCorrelativo).padStart(8, '0') }}
+      </strong>
+      <span 
+        class="proximo-correlativo__ambiente"
+        :class="{
+          'proximo-correlativo__ambiente--prod': auth.esProduccion,
+          'proximo-correlativo__ambiente--beta': !auth.esProduccion,
+        }"
+      >
+        {{ auth.esProduccion ? '🔴 Producción' : '🟡 Beta' }}
+      </span>
+    </div>
+  </div>
+  
+  <div class="panel__grid">
+    <BaseSelect v-model="tipoComprobante" label="Tipo" :opciones="tiposComprobante" />
+    <BaseSelect v-model="clienteId" label="Cliente" :opciones="opcionesClientes" placeholder="Selecciona un cliente" />
+    <BaseSelect v-model="condicionPago" label="Condición de pago" :opciones="condicionesPago" />
+  </div>
+</div>
 
       <!-- Productos -->
       <div class="panel">
@@ -533,9 +626,14 @@ onMounted(async () => {
 
       <!-- Botón emitir centrado al final -->
       <div v-if="carrito.length > 0" class="acciones-finales">
-        <BaseButton :cargando="emitiendo" bloque @click="emitir">
-          Emitir comprobante
-        </BaseButton>
+        <BaseButton 
+  :cargando="emitiendo" 
+  :disabled="configuracion && !configuracion.todo_listo"
+  bloque 
+  @click="emitir"
+>
+  Emitir comprobante
+</BaseButton>
       </div>
     </div>
   </div>
@@ -895,5 +993,121 @@ h1 { margin-bottom: var(--space-lg); }
     /* Cuando se apila, no ocupa espacio inútil */
     display: none;
   }
+}
+
+/* ============================================
+   INDICADOR DE PRÓXIMO CORRELATIVO
+   ============================================ */
+
+.proximo-correlativo {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background-color: var(--bg-surface-2);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  font-size: 13px;
+}
+
+.proximo-correlativo__label {
+  color: var(--text-secondary);
+}
+
+.proximo-correlativo__numero {
+  color: var(--text-primary);
+  font-family: monospace;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.proximo-correlativo__ambiente {
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+.proximo-correlativo__ambiente--prod {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+}
+
+.proximo-correlativo__ambiente--beta {
+  background-color: rgba(245, 158, 11, 0.15);
+  color: #d97706;
+}
+
+@media (max-width: 700px) {
+  .proximo-correlativo {
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+  .proximo-correlativo__numero {
+    font-size: 12px;
+  }
+  .panel__head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-sm);
+  }
+}
+
+.alerta-config {
+  display: flex;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-lg);
+  background: var(--warning-soft);
+  border: 1px solid var(--warning);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-md);
+}
+
+.alerta-config__icono {
+  font-size: 28px;
+  flex-shrink: 0;
+}
+
+.alerta-config__contenido {
+  flex: 1;
+}
+
+.alerta-config__contenido h4 {
+  margin: 0 0 4px;
+  color: var(--warning);
+  font-size: var(--text-base);
+}
+
+.alerta-config__contenido p {
+  margin: 0 0 var(--space-sm);
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+}
+
+.alerta-config__contenido ul {
+  margin: 0 0 var(--space-md);
+  padding-left: var(--space-md);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.alerta-config__contenido li {
+  margin: 4px 0;
+}
+
+.alerta-config__btn {
+  background: var(--warning);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  cursor: pointer;
+  font-size: var(--text-sm);
+}
+
+.alerta-config__btn:hover {
+  opacity: 0.9;
 }
 </style>
