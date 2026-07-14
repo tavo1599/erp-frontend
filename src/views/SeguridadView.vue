@@ -1,7 +1,7 @@
 <!-- src/views/SeguridadView.vue -->
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { Shield, KeyRound, FileCheck2, AlertTriangle } from 'lucide-vue-next';
+import { Shield, KeyRound, FileCheck2, AlertTriangle, Banknote } from 'lucide-vue-next';
 import { empresaService, type Empresa } from '../services/empresa.service';
 import { useToast } from '../composables/useToast';
 import { useConfirm } from '../composables/useConfirm';
@@ -35,12 +35,19 @@ const subiendoCert = ref(false);
 // Ambiente
 const guardandoAmbiente = ref(false);
 
+// Cuenta detracción
+const cuentaDetraccion = ref('');
+const cuentaDetraccionCci = ref('');
+const guardandoCuentaDetraccion = ref(false);
+
 async function cargar() {
   cargando.value = true;
   try {
     empresa.value = await empresaService.obtener();
     solUsuario.value = empresa.value.sol_usuario || '';
-    // No precargamos la clave por seguridad
+    // Cargar cuenta detracción
+    cuentaDetraccion.value = empresa.value.cuenta_detraccion || '';
+    cuentaDetraccionCci.value = empresa.value.cuenta_detraccion_cci || '';
   } catch {
     toast.error('No se pudieron cargar los datos');
   } finally {
@@ -194,6 +201,30 @@ async function cambiarAmbiente(nuevo: string) {
   }
 }
 
+async function guardarCuentaDetraccion() {
+  if (!cuentaDetraccion.value) {
+    toast.advertencia('Ingresa el número de cuenta de detracción');
+    return;
+  }
+  
+  guardandoCuentaDetraccion.value = true;
+  try {
+    await empresaService.actualizarCuentaDetraccion(
+      cuentaDetraccion.value,
+      cuentaDetraccionCci.value,
+    );
+    if (empresa.value) {
+      empresa.value.cuenta_detraccion = cuentaDetraccion.value;
+      empresa.value.cuenta_detraccion_cci = cuentaDetraccionCci.value;
+    }
+    toast.exito('Cuenta de detracción actualizada');
+  } catch (e: any) {
+    toast.error(e.response?.data?.message || 'Error al actualizar la cuenta');
+  } finally {
+    guardandoCuentaDetraccion.value = false;
+  }
+}
+
 onMounted(cargar);
 </script>
 
@@ -314,6 +345,34 @@ onMounted(cargar);
           </BaseButton>
         </div>
       </div>
+      <!-- 4. CUENTA DETRACCIÓN -->
+<div class="seg-panel">
+  <div class="seg-panel__head">
+    <Banknote :size="20" class="seg-panel__icono" />
+    <h3 class="seg-panel__titulo">Cuenta de Detracción (Banco de la Nación)</h3>
+  </div>
+  <p class="seg-panel__desc">
+    Cuenta donde tus clientes B2B depositan la detracción (SPOT).
+    Obligatoria si emites facturas mayores a S/700 a empresas que aplican detracción.
+  </p>
+  <div class="form-grid">
+    <BaseInput 
+      v-model="cuentaDetraccion" 
+      label="Número de cuenta" 
+      placeholder="00-000-123456" 
+    />
+    <BaseInput 
+      v-model="cuentaDetraccionCci" 
+      label="CCI (opcional)" 
+      placeholder="018-000-000012345678-90" 
+    />
+  </div>
+  <div class="acciones">
+    <BaseButton :cargando="guardandoCuentaDetraccion" @click="guardarCuentaDetraccion">
+      Guardar cuenta
+    </BaseButton>
+  </div>
+</div>
     </div>
   </div>
 </template>

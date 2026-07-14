@@ -1,8 +1,9 @@
 <!-- src/views/ProductosView.vue -->
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import { Plus, Pencil, History, Trash2, Package, DollarSign, Tag } from 'lucide-vue-next';
+import { ref, onMounted, computed } from 'vue';
+import { Plus, Pencil, History, Trash2, Package, DollarSign, Tag, FileCheck } from 'lucide-vue-next';
 import { productosService, type Producto, type CrearProducto } from '../services/productos.service';
+import { ventasService } from '../services/ventas.service';
 import { useFormato } from '../composables/useFormato';
 import BaseTable from '../components/ui/BaseTable.vue';
 import BaseModal from '../components/ui/BaseModal.vue';
@@ -13,6 +14,7 @@ import { useToast } from '../composables/useToast';
 import { kardexService, type MovimientoKardex } from '../services/kardex.service';
 import { useConfirm } from '../composables/useConfirm';
 import { useAuthStore } from '../stores/auth.store';
+
 
 const toast = useToast();
 const { confirmar } = useConfirm();
@@ -45,6 +47,42 @@ const tiposIgv = [
   { valor: '30', texto: 'Inafecto (sin IGV)' },
 ];
 
+// ============== DETRACCIÓN SUNAT ==============
+const catalogoDetracciones = ref<Array<{
+  codigo: string;
+  descripcion: string;
+  porcentaje: number;
+  tipo: 'BIEN' | 'SERVICIO';
+}>>([]);
+
+const opcionesDetraccion = computed(() =>
+  catalogoDetracciones.value.map((d) => ({
+    valor: d.codigo,
+    texto: `${d.codigo} - ${d.descripcion} (${d.porcentaje}%)`,
+  }))
+);
+
+async function cargarCatalogoDetracciones() {
+  try {
+    catalogoDetracciones.value = await ventasService.listarCatalogoDetracciones();
+  } catch (e) {
+    console.warn('No se pudo cargar el catálogo de detracciones');
+  }
+}
+
+// Cuando cambia el código de detracción, autocompletar el porcentaje
+function actualizarPorcentajeDetraccion() {
+  const codigo = form.value.codigo_detraccion;
+  if (!codigo) {
+    form.value.porcentaje_detraccion = 0;
+    return;
+  }
+  const item = catalogoDetracciones.value.find((d) => d.codigo === codigo);
+  if (item) {
+    form.value.porcentaje_detraccion = item.porcentaje;
+  }
+}
+
 // ============== COLUMNAS ==============
 const columnas = [
   { clave: 'codigo_sunat', titulo: 'Código' },
@@ -64,7 +102,11 @@ const columnasKardex = [
 ];
 
 // ============== FORMULARIO ==============
-const form = ref<CrearProducto>({
+const form = ref<CrearProducto & { 
+  codigo_detraccion: string;
+  porcentaje_detraccion: number;
+  aplica_detraccion: boolean;
+}>({
   nombre: '',
   codigo_sunat: '',
   unidad_medida: 'NIU',
@@ -73,8 +115,10 @@ const form = ref<CrearProducto>({
   tipo_igv: '10',
   tipo_bien_servicio: 'BIEN',
   stock_actual: 0,
+  aplica_detraccion: false,
+  codigo_detraccion: '',
+  porcentaje_detraccion: 0,
 });
-
 // ============== FUNCIONES ==============
 async function cargar() {
   cargando.value = true;
@@ -96,6 +140,9 @@ function abrirModalCrear() {
     tipo_igv: '10',
     tipo_bien_servicio: 'BIEN',
     stock_actual: 0,
+    aplica_detraccion: false,
+    codigo_detraccion: '',
+    porcentaje_detraccion: 0,
   };
   modalAbierto.value = true;
 }
@@ -110,6 +157,9 @@ function abrirModalEditar(producto: Producto) {
     precio_compra: Number(producto.precio_compra || 0),
     tipo_igv: producto.tipo_igv,
     tipo_bien_servicio: producto.tipo_bien_servicio || 'BIEN',
+    aplica_detraccion: producto.aplica_detraccion || false,
+    codigo_detraccion: producto.codigo_detraccion || '',
+    porcentaje_detraccion: Number(producto.porcentaje_detraccion || 0),
   };
   modalAbierto.value = true;
 }
@@ -181,7 +231,10 @@ function esEntrada(tipo: string) {
   return tipo === 'INGRESO_COMPRA' || tipo === 'AJUSTE_INGRESO';
 }
 
-onMounted(cargar);
+onMounted(async () => {
+  await cargar();
+  await cargarCatalogoDetracciones();
+});
 </script>
 
 <template>
@@ -341,6 +394,48 @@ onMounted(cargar);
             El stock se gestiona desde compras y movimientos de kardex. No se edita aquí.
           </p>
         </div>
+        <!-- Sección: Detracción SUNAT -->
+<div class="form__seccion">
+  <div class="form__seccion-head">
+    <FileCheck :size="18" />
+    <span>Detracción SUNAT (opcional)</span>
+  </div>
+  
+  <!-- Checkbox para activar -->
+  <label class="detraccion-checkbox">
+    <input 
+      type="checkbox" 
+      v-model="form.aplica_detraccion"
+    />
+    <div>
+      <strong>Este producto aplica detracción</strong>
+      <span class="detraccion-checkbox__desc">
+        Activa si vas a emitir facturas &gt; S/ 700 a empresas por este producto/servicio
+      </span>
+    </div>
+  </label>
+  
+  <!-- Campos de detracción (solo si está activo) -->
+  <div v-if="form.aplica_detraccion" class="form__grid-2">
+    <BaseSelect
+      v-model="form.codigo_detraccion"
+      label="Código SUNAT"
+      :opciones="opcionesDetraccion"
+      @update:model-value="actualizarPorcentajeDetraccion"
+    />
+    <BaseInput
+      :model-value="String(form.porcentaje_detraccion)"
+      @update:model-value="form.porcentaje_detraccion = Number($event)"
+      label="Porcentaje (%)"
+      tipo="number"
+      placeholder="12"
+    />
+  </div>
+  
+  <p v-if="form.aplica_detraccion" class="form__nota">
+    💡 El porcentaje se autocompleta al seleccionar el código.
+  </p>
+</div>
       </div>
 
       <template #footer>
@@ -478,5 +573,39 @@ onMounted(cargar);
   .form__grid-3 {
     grid-template-columns: 1fr;
   }
+}
+
+/* ============ DETRACCIÓN ============ */
+.detraccion-checkbox {
+  display: flex;
+  gap: var(--space-md);
+  align-items: flex-start;
+  padding: var(--space-md);
+  background: var(--bg-surface-2);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  border: 2px solid var(--border);
+  transition: var(--transition);
+  margin-bottom: var(--space-md);
+}
+
+.detraccion-checkbox:hover {
+  border-color: var(--accent);
+}
+
+.detraccion-checkbox input {
+  margin-top: 4px;
+  accent-color: var(--accent);
+}
+
+.detraccion-checkbox strong {
+  display: block;
+  font-size: var(--text-sm);
+  margin-bottom: 2px;
+}
+
+.detraccion-checkbox__desc {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
 }
 </style>

@@ -3,7 +3,7 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth.store';
-import { Plus, Trash2, ArrowLeft, FileText, Receipt, CreditCard } from 'lucide-vue-next';
+import { Plus, Trash2, ArrowLeft, FileText, Receipt, CreditCard, FileCheck } from 'lucide-vue-next';
 import { ventasService } from '../services/ventas.service';
 import { clientesService, type Cliente } from '../services/clientes.service';
 import { productosService, type Producto } from '../services/productos.service';
@@ -222,6 +222,47 @@ const costoTotal = computed(() =>
 );
 
 const utilidad = computed(() => totales.value.total - costoTotal.value);
+
+// ============================================================
+// DETRACCIÓN
+// ============================================================
+const detraccion = computed(() => {
+  // Solo aplica en facturas
+  if (tipoComprobante.value !== '01') return null;
+  
+  // Cliente debe tener RUC (11 dígitos)
+  const cliente = clientes.value.find((c) => c.id === clienteId.value);
+  const esEmpresa = cliente?.numero_documento?.length === 11;
+  if (!esEmpresa) return null;
+  
+  // Monto debe superar S/ 700
+  if (totales.value.total <= 700) return null;
+  
+  // Buscar producto con mayor porcentaje de detracción
+  const productosConDetraccion = carrito.value.filter(
+    (item) => item.producto.aplica_detraccion && item.producto.codigo_detraccion,
+  );
+  if (productosConDetraccion.length === 0) return null;
+  
+  const productoElegido = productosConDetraccion.reduce((prev, curr) => {
+    const prevPct = Number(prev.producto.porcentaje_detraccion || 0);
+    const currPct = Number(curr.producto.porcentaje_detraccion || 0);
+    return currPct > prevPct ? curr : prev;
+  });
+  
+  const codigo = productoElegido.producto.codigo_detraccion!;
+  const porcentaje = Number(productoElegido.producto.porcentaje_detraccion);
+  const monto = Math.round((totales.value.total * porcentaje / 100) * 100) / 100;
+  const saldo = Math.round((totales.value.total - monto) * 100) / 100;
+  
+  return {
+    codigo,
+    porcentaje,
+    monto,
+    saldo,
+    descripcion: `${codigo} - ${porcentaje}%`,
+  };
+});
 
 const margenPct = computed(() => {
   if (totales.value.total === 0) return 0;
@@ -621,6 +662,25 @@ watch(tipoComprobante, () => {
             <span>TOTAL</span>
             <span>{{ moneda(totales.total) }}</span>
           </div>
+          <!-- Detracción SUNAT -->
+<div v-if="detraccion" class="detraccion-info">
+  <div class="detraccion-info__header">
+    <FileCheck :size="16" />
+    <span>Detracción SUNAT ({{ detraccion.descripcion }})</span>
+  </div>
+  <div class="detraccion-info__linea">
+    <span>Monto detracción:</span>
+    <strong>− {{ moneda(detraccion.monto) }}</strong>
+  </div>
+  <div class="detraccion-info__linea detraccion-info__saldo">
+    <span>Saldo a pagar:</span>
+    <strong>{{ moneda(detraccion.saldo) }}</strong>
+  </div>
+  <p class="detraccion-info__nota">
+    💡 El cliente deposita S/ {{ moneda(detraccion.monto) }} en tu cuenta del Banco de la Nación,
+    y S/ {{ moneda(detraccion.saldo) }} directamente a tu cuenta bancaria.
+  </p>
+</div>
         </div>
       </div>
 
@@ -1109,5 +1169,64 @@ h1 { margin-bottom: var(--space-lg); }
 
 .alerta-config__btn:hover {
   opacity: 0.9;
+}
+
+/* ============================================
+   DETRACCIÓN INFO
+   ============================================ */
+
+.detraccion-info {
+  margin-top: var(--space-md);
+  padding: var(--space-md);
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(245, 158, 11, 0.02));
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: var(--radius-md);
+  border-left: 3px solid #f59e0b;
+}
+
+.detraccion-info__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-weight: 700;
+  font-size: var(--text-sm);
+  color: #d97706;
+  margin-bottom: var(--space-sm);
+  padding-bottom: var(--space-sm);
+  border-bottom: 1px dashed rgba(245, 158, 11, 0.3);
+}
+
+.detraccion-info__linea {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
+  font-size: var(--text-sm);
+}
+
+.detraccion-info__linea strong {
+  color: var(--text-primary);
+  font-size: var(--text-base);
+}
+
+.detraccion-info__saldo {
+  padding-top: var(--space-sm);
+  margin-top: var(--space-sm);
+  border-top: 1px solid rgba(245, 158, 11, 0.3);
+  font-weight: 700;
+}
+
+.detraccion-info__saldo strong {
+  color: #d97706;
+  font-size: var(--text-lg);
+}
+
+.detraccion-info__nota {
+  margin-top: var(--space-sm);
+  padding-top: var(--space-sm);
+  border-top: 1px dashed rgba(245, 158, 11, 0.3);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  line-height: 1.5;
 }
 </style>

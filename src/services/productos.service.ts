@@ -12,6 +12,9 @@ export interface Producto {
   estado: boolean;
   precio_compra: number;
   tipo_bien_servicio?: string;
+    aplica_detraccion?: boolean;
+  codigo_detraccion?: string | null;
+  porcentaje_detraccion?: number | null;
 }
 
 export interface CrearProducto {
@@ -23,6 +26,9 @@ export interface CrearProducto {
   stock_actual?: number;
   precio_compra?: number;
   tipo_bien_servicio: string;
+    aplica_detraccion?: boolean;
+  codigo_detraccion?: string;
+  porcentaje_detraccion?: number;
 }
 
 export const productosService = {

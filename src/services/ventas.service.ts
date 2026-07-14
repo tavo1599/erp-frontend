@@ -173,5 +173,15 @@ async proximoCorrelativo(params: {
 async marcarParaAnulacion(id: string) {
   const { data } = await http.post(`/ventas/${id}/marcar-anulacion`, {});
   return data;
-}
+},
+
+async listarCatalogoDetracciones(): Promise<Array<{
+  codigo: string;
+  descripcion: string;
+  porcentaje: number;
+  tipo: 'BIEN' | 'SERVICIO';
+}>> {
+  const { data } = await http.get('/ventas/catalogo-detracciones');
+  return data;
+},
 };

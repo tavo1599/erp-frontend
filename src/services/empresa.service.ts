@@ -14,6 +14,9 @@ export interface Empresa {
   sol_usuario?: string;
   estado: boolean;
   ambiente?: string;
+    cuenta_detraccion?: string | null;
+  cuenta_detraccion_cci?: string | null;
+
 }
 
 export const empresaService = {
@@ -101,5 +104,13 @@ async verificarConfiguracion() {
     todo_listo: boolean;
     faltantes: string[];
   };
+},
+
+async actualizarCuentaDetraccion(cuenta_detraccion: string, cuenta_detraccion_cci?: string) {
+  const { data } = await http.patch('/empresas/mi-empresa/cuenta-detraccion', {
+    cuenta_detraccion,
+    cuenta_detraccion_cci,
+  });
+  return data;
 },
 };
