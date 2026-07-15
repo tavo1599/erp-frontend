@@ -12,6 +12,7 @@ import { useToast } from '../composables/useToast';
 import BaseButton from '../components/ui/BaseButton.vue';
 import BaseSelect from '../components/ui/BaseSelect.vue';
 import { empresaService } from '../services/empresa.service';
+import { almacenesService, type Almacen } from '../services/almacenes.service';
 
 const router = useRouter();
 const { moneda } = useFormato();
@@ -25,6 +26,25 @@ const cargandoCorrelativo = ref(false);
 
 const configuracion = ref<any>(null);
 const cargandoConfig = ref(false);
+
+// Almacenes
+const almacenes = ref<Almacen[]>([]);
+const almacenId = ref<string>('');
+
+async function cargarAlmacenes() {
+  try {
+    almacenes.value = await almacenesService.listar();
+    // Preseleccionar el principal
+    const principal = almacenes.value.find((a) => a.es_principal);
+    if (principal) {
+      almacenId.value = principal.id;
+    } else if (almacenes.value.length > 0) {
+      almacenId.value = almacenes.value[0].id;
+    }
+  } catch {
+    console.warn('No se pudieron cargar los almacenes');
+  }
+}
 
 async function verificarConfig() {
   cargandoConfig.value = true;
@@ -314,6 +334,7 @@ async function emitir() {
       pagos: condicionPago.value === 'CONTADO' 
         ? pagos.value.filter(p => Number(p.monto) > 0)
         : undefined,
+      almacen_id: almacenId.value || undefined,
     } as any);
     
     // Ahora SIEMPRE que llegue aquí, fue ACEPTADO (el backend lanza throw si rechaza)
@@ -361,6 +382,7 @@ onMounted(async () => {
   clientes.value = await clientesService.listar();
   productos.value = await productosService.listar();
   verificarConfig();
+  await cargarAlmacenes();
   await cargarProximoCorrelativo();
 });
 
@@ -453,6 +475,17 @@ watch(tipoComprobante, () => {
     <BaseSelect v-model="tipoComprobante" label="Tipo" :opciones="tiposComprobante" />
     <BaseSelect v-model="clienteId" label="Cliente" :opciones="opcionesClientes" placeholder="Selecciona un cliente" />
     <BaseSelect v-model="condicionPago" label="Condición de pago" :opciones="condicionesPago" />
+    
+    <!-- Selector de almacén (solo si hay 2 o más) -->
+    <BaseSelect
+      v-if="almacenes.length > 1"
+      v-model="almacenId"
+      label="Almacén origen"
+      :opciones="almacenes.map(a => ({ 
+        valor: a.id, 
+        texto: a.es_principal ? `${a.nombre} ⭐` : a.nombre 
+      }))"
+    />
   </div>
 </div>
 
