@@ -4,6 +4,7 @@ import http from './http';
 export interface Producto {
   id: string;
   codigo_sunat: string;
+  codigo_barras?: string | null;
   nombre: string;
   unidad_medida: string;
   precio_venta: number;
@@ -19,6 +20,7 @@ export interface Producto {
 
 export interface CrearProducto {
   codigo_sunat?: string;
+  codigo_barras?: string;
   nombre: string;
   unidad_medida?: string;
   precio_venta: number;

@@ -109,6 +109,7 @@ const form = ref<CrearProducto & {
 }>({
   nombre: '',
   codigo_sunat: '',
+  codigo_barras: '',
   unidad_medida: 'NIU',
   precio_venta: 0,
   precio_compra: 0,
@@ -134,6 +135,7 @@ function abrirModalCrear() {
   form.value = {
     nombre: '',
     codigo_sunat: '',
+    codigo_barras: '',
     unidad_medida: 'NIU',
     precio_venta: 0,
     precio_compra: 0,
@@ -152,6 +154,7 @@ function abrirModalEditar(producto: Producto) {
   form.value = {
     nombre: producto.nombre,
     codigo_sunat: producto.codigo_sunat,
+    codigo_barras: producto.codigo_barras || '',
     unidad_medida: producto.unidad_medida,
     precio_venta: Number(producto.precio_venta),
     precio_compra: Number(producto.precio_compra || 0),
@@ -332,6 +335,7 @@ onMounted(async () => {
           <div class="form__grid-2">
             <BaseInput v-model="form.nombre" label="Nombre del producto" placeholder="Ej: Laptop HP Pavilion" />
             <BaseInput v-model="form.codigo_sunat" label="Código" placeholder="Ej: P001" />
+            <BaseInput v-model="form.codigo_barras" label="Código de barras" placeholder="Escanea o escribe el código" />
           </div>
         </div>
 

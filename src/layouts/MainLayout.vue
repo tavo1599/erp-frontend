@@ -8,7 +8,7 @@ import { useToast } from '../composables/useToast';
 import {
   LayoutDashboard, Receipt, Package, Users, ShoppingCart, Wallet, Menu, Power,
   Truck, FileMinus, Settings, Shield, Ticket, Building2, BarChart3, Car,
-  UserCircle2, MapPin, History, AlertTriangle, ArrowLeftRight, Palette, ShieldCheck, HelpCircle, Warehouse
+  UserCircle2, MapPin, History, AlertTriangle, ArrowLeftRight, Palette, ShieldCheck, HelpCircle, Warehouse, ScanBarcode
 } from 'lucide-vue-next';
 
 const router = useRouter();
@@ -37,6 +37,7 @@ async function verificarVariasEmpresas() {
 // permiso: 'xxx' → solo si el usuario tiene ese permiso
 const menu = [
   { nombre: 'Dashboard', icono: LayoutDashboard, ruta: '/', permiso: null },
+  { nombre: 'Punto de Venta', icono: ScanBarcode, ruta: '/pos', permiso: 'crear_ventas' },
   { nombre: 'Ventas', icono: Receipt, ruta: '/ventas', permiso: 'ver_ventas' },
   { nombre: 'Almacenes', icono: Warehouse, ruta: '/almacenes', permiso: 'ver_almacenes' },
   { nombre: 'Notas', icono: FileMinus, ruta: '/notas', permiso: 'ver_notas' },
