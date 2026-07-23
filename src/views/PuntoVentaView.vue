@@ -5,6 +5,7 @@ import { ScanBarcode, Trash2, Plus, Minus, Keyboard } from 'lucide-vue-next';
 import { productosService, type Producto } from '../services/productos.service';
 import { almacenesService, type Almacen } from '../services/almacenes.service';
 import { ventasService } from '../services/ventas.service';
+import { sunatService } from '../services/sunat.service';
 import { useFormato } from '../composables/useFormato';
 import { useToast } from '../composables/useToast';
 import BaseButton from '../components/ui/BaseButton.vue';
@@ -32,6 +33,28 @@ const carrito = ref<ItemCarrito[]>([]);
 // Cliente (por defecto "varios" → boleta)
 const docCliente = ref('');
 const nombreCliente = ref('');
+const consultandoDoc = ref(false);
+
+// Consulta DNI (8 díg.) o RUC (11 díg.) y autocompleta el nombre.
+async function consultarDocumento() {
+  const doc = docCliente.value.trim();
+  if (doc.length !== 8 && doc.length !== 11) return;
+  if (!/^\d+$/.test(doc)) return;
+  consultandoDoc.value = true;
+  try {
+    if (doc.length === 8) {
+      const p = await sunatService.consultarDni(doc);
+      if (p?.nombre_completo) nombreCliente.value = p.nombre_completo;
+    } else {
+      const e = await sunatService.consultarRuc(doc);
+      if (e?.razon_social) nombreCliente.value = e.razon_social;
+    }
+  } catch {
+    toast.advertencia('No se pudo consultar el documento');
+  } finally {
+    consultandoDoc.value = false;
+  }
+}
 
 // Pago
 const metodoPago = ref<'EFECTIVO' | 'YAPE' | 'TARJETA'>('EFECTIVO');
@@ -371,16 +394,21 @@ onBeforeUnmount(() => {
       <aside class="pos__der">
         <div class="pos__cliente">
           <h3>Cliente</h3>
-          <input
-            v-model="docCliente"
-            type="text"
-            maxlength="15"
-            placeholder="DNI / RUC (opcional → Cliente varios)"
-          />
+          <div class="pos__doc">
+            <input
+              v-model="docCliente"
+              type="text"
+              maxlength="15"
+              placeholder="DNI / RUC (opcional → Cliente varios)"
+              @blur="consultarDocumento"
+              @keydown.enter.prevent="consultarDocumento"
+            />
+            <span v-if="consultandoDoc" class="pos__doc-cargando">Consultando…</span>
+          </div>
           <input
             v-model="nombreCliente"
             type="text"
-            placeholder="Nombre / Razón social (opcional)"
+            placeholder="Nombre / Razón social (se autocompleta con el DNI/RUC)"
           />
           <span class="pos__comprobante">
             {{ tipoComprobante === '01' ? 'Factura' : 'Boleta' }} · {{ serie }}
@@ -485,6 +513,8 @@ onBeforeUnmount(() => {
 .pos__der { display: flex; flex-direction: column; gap: .75rem; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1rem; overflow-y: auto; }
 .pos__der h3 { font-size: .8rem; text-transform: uppercase; letter-spacing: .03em; color: #64748b; margin: 0 0 .5rem; }
 .pos__cliente input { width: 100%; padding: .55rem .7rem; border: 1px solid #cbd5e1; border-radius: 8px; margin-bottom: .5rem; }
+.pos__doc { position: relative; }
+.pos__doc-cargando { position: absolute; right: .6rem; top: .55rem; font-size: .72rem; color: #6366f1; }
 .pos__comprobante { font-size: .8rem; color: #6366f1; font-weight: 600; }
 
 .pos__metodos { display: grid; grid-template-columns: repeat(3, 1fr); gap: .4rem; }
