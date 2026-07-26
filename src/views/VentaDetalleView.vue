@@ -2,7 +2,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { ArrowLeft, FileText, Receipt, Trash2, FileCode2, FileCheck2 } from 'lucide-vue-next';
+import { ArrowLeft, FileText, Receipt, Trash2, FileCode2, FileCheck2, Mail, Send } from 'lucide-vue-next';
 import { ventasService } from '../services/ventas.service';
 import { useFormato } from '../composables/useFormato';
 import { useToast } from '../composables/useToast';
@@ -66,6 +66,30 @@ async function descargarCdr() {
   }
 }
 
+const mostrarCorreo = ref(false);
+const correoDestino = ref('');
+const enviandoCorreo = ref(false);
+
+async function enviarCorreo() {
+  if (!venta.value) return;
+  const correo = correoDestino.value.trim();
+  if (!correo) {
+    toast.advertencia('Ingresa un correo de destino');
+    return;
+  }
+  enviandoCorreo.value = true;
+  try {
+    await ventasService.enviarCorreo(venta.value.id, correo);
+    toast.exito('Comprobante enviado por correo');
+    mostrarCorreo.value = false;
+    correoDestino.value = '';
+  } catch (e: any) {
+    toast.error(e.response?.data?.message || 'No se pudo enviar el correo');
+  } finally {
+    enviandoCorreo.value = false;
+  }
+}
+
 onMounted(cargar);
 </script>
 
@@ -106,6 +130,22 @@ onMounted(cargar);
         </BaseButton>
         <BaseButton variant="secondary" @click="descargarCdr" v-if="venta.tiene_cdr">
           <FileCheck2 :size="18" /> CDR
+        </BaseButton>
+        <BaseButton variant="secondary" @click="mostrarCorreo = !mostrarCorreo">
+          <Mail :size="18" /> Enviar por correo
+        </BaseButton>
+      </div>
+
+      <!-- Envío por correo -->
+      <div v-if="venta.estado_sunat === 'ACEPTADO' && mostrarCorreo" class="detalle__correo">
+        <input
+          v-model="correoDestino"
+          type="email"
+          placeholder="correo@cliente.com"
+          @keydown.enter.prevent="enviarCorreo"
+        />
+        <BaseButton :cargando="enviandoCorreo" @click="enviarCorreo">
+          <Send :size="16" /> Enviar
         </BaseButton>
       </div>
 
@@ -222,6 +262,16 @@ onMounted(cargar);
 .detalle__acciones {
   display: flex; gap: var(--space-sm);
   margin-bottom: var(--space-md);
+  flex-wrap: wrap;
+}
+.detalle__correo {
+  display: flex; gap: var(--space-sm); align-items: center;
+  margin-bottom: var(--space-md); flex-wrap: wrap;
+}
+.detalle__correo input {
+  flex: 1; min-width: 220px;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--border); border-radius: var(--radius-md);
 }
 
 .panel {

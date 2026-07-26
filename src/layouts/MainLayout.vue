@@ -8,7 +8,7 @@ import { useToast } from '../composables/useToast';
 import {
   LayoutDashboard, Receipt, Package, Users, ShoppingCart, Wallet, Menu, Power,
   Truck, FileMinus, Settings, Shield, Ticket, Building2, BarChart3, Car,
-  UserCircle2, MapPin, History, AlertTriangle, ArrowLeftRight, Palette, ShieldCheck, HelpCircle, Warehouse, ScanBarcode
+  UserCircle2, MapPin, History, AlertTriangle, ArrowLeftRight, Palette, ShieldCheck, HelpCircle, Warehouse, ScanBarcode, FileText
 } from 'lucide-vue-next';
 
 const router = useRouter();
@@ -38,8 +38,10 @@ async function verificarVariasEmpresas() {
 const menu = [
   { nombre: 'Dashboard', icono: LayoutDashboard, ruta: '/', permiso: null },
   { nombre: 'Punto de Venta', icono: ScanBarcode, ruta: '/pos', permiso: 'crear_ventas' },
+  { nombre: 'Cotizaciones', icono: FileText, ruta: '/cotizaciones', permiso: 'ver_ventas' },
   { nombre: 'Ventas', icono: Receipt, ruta: '/ventas', permiso: 'ver_ventas' },
   { nombre: 'Almacenes', icono: Warehouse, ruta: '/almacenes', permiso: 'ver_almacenes' },
+  { nombre: 'Transferencias', icono: ArrowLeftRight, ruta: '/transferencias', permiso: 'ver_almacenes' },
   { nombre: 'Notas', icono: FileMinus, ruta: '/notas', permiso: 'ver_notas' },
   { nombre: 'Productos', icono: Package, ruta: '/productos', permiso: 'ver_productos' },
   { nombre: 'Clientes', icono: Users, ruta: '/clientes', permiso: 'ver_clientes' },
@@ -50,7 +52,10 @@ const menu = [
   { nombre: 'Conductores', icono: UserCircle2, ruta: '/conductores', permiso: 'ver_guias' },
   { nombre: 'Direcciones', icono: MapPin, ruta: '/direcciones-traslado', permiso: 'ver_guias' },
   { nombre: 'Guías de remisión', icono: Truck, ruta: '/guias-remision', permiso: 'ver_guias' },
+  { nombre: 'Retenciones', icono: FileMinus, ruta: '/retenciones', permiso: 'ver_ventas' },
+  { nombre: 'Percepciones', icono: FileMinus, ruta: '/percepciones', permiso: 'ver_ventas' },
   { nombre: 'Finanzas', icono: Wallet, ruta: '/finanzas', permiso: 'ver_finanzas' },
+  { nombre: 'Reportes', icono: BarChart3, ruta: '/reportes', permiso: 'ver_ventas' },
   { nombre: 'Envíos SUNAT', icono: Ticket, ruta: '/tickets-sunat', permiso: 'ver_ventas' },
   { nombre: 'Configuración', icono: Settings, ruta: '/configuracion', permiso: 'editar_empresa' },
   { nombre: 'Seguridad SUNAT', icono: Shield, ruta: '/seguridad', permiso: 'editar_credenciales_sunat' },

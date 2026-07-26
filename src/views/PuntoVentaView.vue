@@ -1,11 +1,12 @@
 <!-- src/views/PuntoVentaView.vue -->
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue';
-import { ScanBarcode, Trash2, Plus, Minus, Keyboard } from 'lucide-vue-next';
+import { ScanBarcode, Trash2, Plus, Minus, Keyboard, Wallet, Lock, X } from 'lucide-vue-next';
 import { productosService, type Producto } from '../services/productos.service';
 import { almacenesService, type Almacen } from '../services/almacenes.service';
 import { ventasService } from '../services/ventas.service';
 import { sunatService } from '../services/sunat.service';
+import { cajaService, type CajaEstado } from '../services/caja.service';
 import { useFormato } from '../composables/useFormato';
 import { useToast } from '../composables/useToast';
 import BaseButton from '../components/ui/BaseButton.vue';
@@ -270,11 +271,73 @@ async function cargarAlmacenes() {
   }
 }
 
+// ============================================================
+// CAJA (apertura / cierre)
+// ============================================================
+const caja = ref<CajaEstado>({ abierta: false });
+const modalCaja = ref<'abrir' | 'cerrar' | null>(null);
+const montoInicial = ref<number | null>(null);
+const montoContado = ref<number | null>(null);
+const obsCierre = ref('');
+const procesandoCaja = ref(false);
+
+async function cargarCaja() {
+  try {
+    caja.value = await cajaService.estado();
+  } catch {
+    /* silencioso */
+  }
+}
+
+async function abrirCaja() {
+  procesandoCaja.value = true;
+  try {
+    await cajaService.abrir(Number(montoInicial.value) || 0);
+    toast.exito('Caja abierta');
+    modalCaja.value = null;
+    montoInicial.value = null;
+    await cargarCaja();
+  } catch (e: any) {
+    toast.error(e.response?.data?.message || 'No se pudo abrir la caja');
+  } finally {
+    procesandoCaja.value = false;
+  }
+}
+
+const diferenciaCierre = computed(() => {
+  if (montoContado.value == null || !caja.value.caja) return null;
+  return Number((Number(montoContado.value) - caja.value.caja.monto_esperado).toFixed(2));
+});
+
+async function cerrarCaja() {
+  if (montoContado.value == null) {
+    toast.advertencia('Ingresa el monto contado');
+    return;
+  }
+  procesandoCaja.value = true;
+  try {
+    const res = await cajaService.cerrar(Number(montoContado.value), obsCierre.value.trim() || undefined);
+    const dif = res.diferencia;
+    toast.exito(
+      `Caja cerrada. ${dif === 0 ? 'Cuadró exacto' : dif > 0 ? `Sobró S/ ${dif}` : `Faltó S/ ${Math.abs(dif)}`}`,
+    );
+    modalCaja.value = null;
+    montoContado.value = null;
+    obsCierre.value = '';
+    await cargarCaja();
+  } catch (e: any) {
+    toast.error(e.response?.data?.message || 'No se pudo cerrar la caja');
+  } finally {
+    procesandoCaja.value = false;
+  }
+}
+
 onMounted(async () => {
   cargando.value = true;
   try {
     productos.value = await productosService.listar();
     await cargarAlmacenes();
+    await cargarCaja();
   } finally {
     cargando.value = false;
   }
@@ -296,6 +359,14 @@ onBeforeUnmount(() => {
         <h1>Punto de Venta</h1>
       </div>
       <div class="pos__top-derecha">
+        <!-- Caja -->
+        <button v-if="!caja.abierta" class="pos__caja pos__caja--cerrada" @click="modalCaja = 'abrir'">
+          <Wallet :size="16" /> Abrir caja
+        </button>
+        <button v-else class="pos__caja pos__caja--abierta" @click="modalCaja = 'cerrar'" title="Cerrar caja">
+          <Wallet :size="16" /> Caja: {{ moneda(caja.caja!.monto_esperado) }} <Lock :size="13" />
+        </button>
+
         <label v-if="mostrarSelectorAlmacen" class="pos__almacen">
           Almacén
           <select v-model="almacenId">
@@ -307,6 +378,37 @@ onBeforeUnmount(() => {
         <span class="pos__atajos" title="Atajos de teclado">
           <Keyboard :size="16" /> F2 buscar · F4 exacto · F9 cobrar · Esc limpiar
         </span>
+      </div>
+    </div>
+
+    <!-- Modal abrir caja -->
+    <div v-if="modalCaja === 'abrir'" class="pos__exito-bg" @click.self="modalCaja = null">
+      <div class="pos__caja-modal">
+        <div class="pos__caja-head"><h2>Abrir caja</h2><button @click="modalCaja = null"><X :size="20" /></button></div>
+        <label>Monto inicial (efectivo en caja)
+          <input v-model.number="montoInicial" type="number" min="0" step="0.10" placeholder="0.00" autofocus />
+        </label>
+        <BaseButton bloque :cargando="procesandoCaja" @click="abrirCaja">Abrir caja</BaseButton>
+      </div>
+    </div>
+
+    <!-- Modal cerrar caja -->
+    <div v-if="modalCaja === 'cerrar' && caja.caja" class="pos__exito-bg" @click.self="modalCaja = null">
+      <div class="pos__caja-modal">
+        <div class="pos__caja-head"><h2>Cerrar caja</h2><button @click="modalCaja = null"><X :size="20" /></button></div>
+        <div class="pos__caja-resumen">
+          <div><span>Monto inicial</span><strong>{{ moneda(caja.caja.monto_inicial) }}</strong></div>
+          <div><span>Ventas en efectivo</span><strong>{{ moneda(caja.caja.ventas_efectivo) }}</strong></div>
+          <div class="pos__caja-esperado"><span>Esperado en caja</span><strong>{{ moneda(caja.caja.monto_esperado) }}</strong></div>
+        </div>
+        <label>Monto contado (lo que hay físicamente)
+          <input v-model.number="montoContado" type="number" min="0" step="0.10" placeholder="0.00" autofocus />
+        </label>
+        <p v-if="diferenciaCierre !== null" class="pos__caja-dif" :class="diferenciaCierre === 0 ? 'ok' : diferenciaCierre > 0 ? 'sobra' : 'falta'">
+          {{ diferenciaCierre === 0 ? 'Cuadra exacto ✓' : diferenciaCierre > 0 ? `Sobra ${moneda(diferenciaCierre)}` : `Falta ${moneda(Math.abs(diferenciaCierre))}` }}
+        </p>
+        <textarea v-model="obsCierre" placeholder="Observaciones (opcional)" rows="2"></textarea>
+        <BaseButton bloque :cargando="procesandoCaja" @click="cerrarCaja">Cerrar caja</BaseButton>
       </div>
     </div>
 
@@ -482,6 +584,23 @@ onBeforeUnmount(() => {
 .pos__almacen { display: flex; align-items: center; gap: .4rem; font-size: .85rem; color: #475569; }
 .pos__almacen select { padding: .35rem .5rem; border: 1px solid #cbd5e1; border-radius: 8px; }
 .pos__atajos { display: inline-flex; align-items: center; gap: .35rem; font-size: .75rem; color: #64748b; background: #f1f5f9; padding: .3rem .6rem; border-radius: 8px; }
+.pos__caja { display: inline-flex; align-items: center; gap: .35rem; font-size: .82rem; font-weight: 600; padding: .4rem .7rem; border-radius: 8px; cursor: pointer; border: 1px solid transparent; }
+.pos__caja--cerrada { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+.pos__caja--abierta { background: #dcfce7; color: #16a34a; border-color: #bbf7d0; }
+.pos__caja-modal { background: #fff; border-radius: 16px; padding: 1.25rem 1.5rem; width: 100%; max-width: 380px; display: flex; flex-direction: column; gap: .7rem; }
+.pos__caja-head { display: flex; align-items: center; justify-content: space-between; }
+.pos__caja-head h2 { margin: 0; font-size: 1.15rem; }
+.pos__caja-head button { background: none; border: none; cursor: pointer; color: #64748b; }
+.pos__caja-modal label { font-size: .82rem; color: #475569; display: flex; flex-direction: column; gap: .3rem; }
+.pos__caja-modal input, .pos__caja-modal textarea { padding: .6rem .7rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 1rem; }
+.pos__caja-resumen { background: #f8fafc; border-radius: 10px; padding: .7rem .9rem; display: flex; flex-direction: column; gap: .3rem; }
+.pos__caja-resumen div { display: flex; justify-content: space-between; font-size: .85rem; color: #64748b; }
+.pos__caja-esperado { border-top: 1px dashed #e2e8f0; padding-top: .3rem; }
+.pos__caja-esperado strong { color: #0f172a; font-size: 1.05rem; }
+.pos__caja-dif { text-align: center; font-weight: 600; padding: .4rem; border-radius: 8px; margin: 0; }
+.pos__caja-dif.ok { background: #dcfce7; color: #16a34a; }
+.pos__caja-dif.sobra { background: #dbeafe; color: #1d4ed8; }
+.pos__caja-dif.falta { background: #fee2e2; color: #b91c1c; }
 
 .pos__grid { display: grid; grid-template-columns: 1fr 340px; gap: 1rem; flex: 1; min-height: 0; }
 

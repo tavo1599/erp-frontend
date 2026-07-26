@@ -124,6 +124,11 @@ export const ventasService = {
     return data;
   },
 
+  async enviarCorreo(id: string, correo: string) {
+    const { data } = await http.post(`/ventas/${id}/enviar-correo`, { correo });
+    return data;
+  },
+
   async descargarXml(id: string, nombreArchivo: string) {
   const response = await http.get(`/ventas/${id}/xml`, {
     responseType: 'blob',

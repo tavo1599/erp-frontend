@@ -26,6 +26,19 @@ export interface ProductoVendido {
   total_vendido: number;
 }
 
+export interface VentaPorAlmacen {
+  almacen: string;
+  total: number;
+  cantidad: number;
+}
+
+export interface Valorizacion {
+  valor_total_costo: number;
+  valor_total_venta: number;
+  utilidad_potencial: number;
+  cantidad_productos: number;
+}
+
 export const dashboardService = {
   async kpis(): Promise<KpisData> {
     const { data } = await http.get('/dashboard/kpis');
@@ -41,6 +54,14 @@ export const dashboardService = {
   },
   async productosMasVendidos(limite = 5) {
     const { data } = await http.get(`/dashboard/productos-mas-vendidos?limite=${limite}`);
+    return data;
+  },
+  async ventasPorAlmacen(): Promise<VentaPorAlmacen[]> {
+    const { data } = await http.get('/dashboard/ventas-por-almacen');
+    return data;
+  },
+  async valorizacion(): Promise<Valorizacion> {
+    const { data } = await http.get('/dashboard/valorizacion-inventario');
     return data;
   },
 };

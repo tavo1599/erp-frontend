@@ -1,7 +1,7 @@
 <!-- src/views/DashboardView.vue -->
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { DollarSign, Calendar, TrendingUp, Receipt, AlertTriangle, Info, AlertCircle } from 'lucide-vue-next';
+import { DollarSign, Calendar, TrendingUp, Receipt, AlertTriangle, Info, AlertCircle, Package, Wallet } from 'lucide-vue-next';
 import { dashboardService, type KpisData, type Alerta } from '../services/dashboard.service';
 import { useFormato } from '../composables/useFormato';
 import { useAuthStore } from '../stores/auth.store';
@@ -9,7 +9,8 @@ import KpiCard from '../components/dashboard/KpiCard.vue';
 import BaseSkeleton from '../components/ui/BaseSkeleton.vue';
 import GraficaVentas from '../components/dashboard/GraficaVentas.vue';
 import GraficaProductos from '../components/dashboard/GraficaProductos.vue';
-import type { VentaPorDia, ProductoVendido } from '../services/dashboard.service';
+import GraficaAlmacenes from '../components/dashboard/GraficaAlmacenes.vue';
+import type { VentaPorDia, ProductoVendido, VentaPorAlmacen, Valorizacion } from '../services/dashboard.service';
 import { useFrases } from '../composables/useFrases';
 
 const { moneda } = useFormato();
@@ -17,6 +18,8 @@ const auth = useAuthStore();
 
 const ventasPorDia = ref<VentaPorDia[]>([]);
 const productosTop = ref<ProductoVendido[]>([]);
+const ventasPorAlmacen = ref<VentaPorAlmacen[]>([]);
+const valorizacion = ref<Valorizacion | null>(null);
 const kpis = ref<KpisData | null>(null);
 const alertas = ref<Alerta[]>([]);
 const cargando = ref(true);
@@ -25,16 +28,21 @@ const textoCarga = ref(frase('dashboard'));
 
 onMounted(async () => {
   try {
-    const [kpisData, alertasData, ventasData, productosData] = await Promise.all([
-      dashboardService.kpis(),
-      dashboardService.alertas(),
-      dashboardService.ventasPorDia(30),
-      dashboardService.productosMasVendidos(5),
-    ]);
+    const [kpisData, alertasData, ventasData, productosData, almacenesData, valorizacionData] =
+      await Promise.all([
+        dashboardService.kpis(),
+        dashboardService.alertas(),
+        dashboardService.ventasPorDia(30),
+        dashboardService.productosMasVendidos(5),
+        dashboardService.ventasPorAlmacen(),
+        dashboardService.valorizacion(),
+      ]);
     kpis.value = kpisData;
     alertas.value = alertasData.alertas;
     ventasPorDia.value = ventasData;
     productosTop.value = productosData;
+    ventasPorAlmacen.value = almacenesData;
+    valorizacion.value = valorizacionData;
   } catch (e) {
     console.error('Error cargando dashboard', e);
   } finally {
@@ -98,10 +106,39 @@ function iconoAlerta(nivel: string) {
       />
     </div>
 
+    <!-- Valorización de inventario -->
+    <div v-if="!cargando && valorizacion" class="dashboard__kpis anim-stagger">
+      <KpiCard
+        titulo="Valor del inventario"
+        :valor="moneda(valorizacion.valor_total_venta)"
+        :icono="Package"
+        subtitulo="a precio de venta"
+      />
+      <KpiCard
+        titulo="Costo del inventario"
+        :valor="moneda(valorizacion.valor_total_costo)"
+        :icono="Wallet"
+        subtitulo="lo invertido en stock"
+      />
+      <KpiCard
+        titulo="Utilidad potencial"
+        :valor="moneda(valorizacion.utilidad_potencial)"
+        :icono="TrendingUp"
+        subtitulo="si vendes todo el stock"
+      />
+      <KpiCard
+        titulo="Productos activos"
+        :valor="String(valorizacion.cantidad_productos)"
+        :icono="Receipt"
+        subtitulo="con stock valorizado"
+      />
+    </div>
+
     <!-- Gráficas -->
     <div v-if="!cargando" class="dashboard__graficas anim-entrada">
       <GraficaVentas :datos="ventasPorDia" />
       <GraficaProductos :datos="productosTop" />
+      <GraficaAlmacenes :datos="ventasPorAlmacen" />
     </div>
 
     <!-- Alertas -->

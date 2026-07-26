@@ -68,6 +68,31 @@ const router = createRouter({
           component: () => import('../views/PuntoVentaView.vue'),
         },
         {
+          path: 'cotizaciones',
+          name: 'cotizaciones',
+          component: () => import('../views/CotizacionesView.vue'),
+        },
+        {
+          path: 'reportes',
+          name: 'reportes',
+          component: () => import('../views/ReportesView.vue'),
+        },
+        {
+          path: 'transferencias',
+          name: 'transferencias',
+          component: () => import('../views/TransferenciasView.vue'),
+        },
+        {
+          path: 'retenciones',
+          name: 'retenciones',
+          component: () => import('../views/RetencionesView.vue'),
+        },
+        {
+          path: 'percepciones',
+          name: 'percepciones',
+          component: () => import('../views/PercepcionesView.vue'),
+        },
+        {
           path: 'ventas/:id',
           name: 'venta-detalle',
           component: () => import('../views/VentaDetalleView.vue'),
