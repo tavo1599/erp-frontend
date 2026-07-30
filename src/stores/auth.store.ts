@@ -1,5 +1,16 @@
 // src/stores/auth.store.ts
 import { defineStore } from 'pinia';
+import axios from 'axios';
+
+// Devuelve la expiración (ms) del JWT, o null si no se puede leer.
+function expiracionToken(token: string): number | null {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.exp ? payload.exp * 1000 : null;
+  } catch {
+    return null;
+  }
+}
 
 interface Usuario {
   nombre: string;
@@ -31,6 +42,32 @@ export const useAuthStore = defineStore('auth', {
   },
 
   actions: {
+    // Renueva el access token de forma proactiva si está vencido o por vencer,
+    // ANTES de disparar las peticiones (evita el brote de 401 al abrir la app).
+    async asegurarTokenFresco() {
+      if (!this.token) return;
+      const exp = expiracionToken(this.token);
+      // Si todavía le quedan más de 30s de vida, no hace falta renovar.
+      if (exp && exp - Date.now() > 30000) return;
+
+      const refreshToken = localStorage.getItem('refresh_token');
+      if (!refreshToken) return;
+
+      try {
+        const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+        const { data } = await axios.post(`${baseURL}/auth/refresh`, {
+          refresh_token: refreshToken,
+        });
+        this.token = data.access_token;
+        localStorage.setItem('token', data.access_token);
+        if (data.refresh_token) {
+          localStorage.setItem('refresh_token', data.refresh_token);
+        }
+      } catch {
+        // Si el refresh falla, el interceptor de http lo manejará (logout) en la 1ª 401.
+      }
+    },
+
     // Guardar sesión tras el login
     establecerSesion(token: string, usuario: Usuario, empresa?: EmpresaActual) {
       this.token = token;

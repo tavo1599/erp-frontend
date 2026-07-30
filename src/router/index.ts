@@ -194,16 +194,20 @@ const router = createRouter({
 });
 
 // Guardia global: protege las rutas que requieren autenticación
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
   const auth = useAuthStore();
-  
+
   const rutasPublicas = ['/login', '/seleccionar-empresa'];
-  
+
   if (!auth.estaAutenticado && !rutasPublicas.includes(to.path)) {
     next('/login');
   } else if (auth.estaAutenticado && to.path === '/login') {
     next('/');
   } else {
+    // Renueva el token si está por vencer ANTES de cargar la vista (evita 401 al abrir)
+    if (auth.estaAutenticado && !rutasPublicas.includes(to.path)) {
+      await auth.asegurarTokenFresco();
+    }
     next();
   }
 });
