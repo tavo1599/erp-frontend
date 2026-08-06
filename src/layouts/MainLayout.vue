@@ -114,7 +114,7 @@ onMounted(async () => {
     <aside class="sidebar" :class="{ 'sidebar--cerrado': !sidebarAbierto }">
       <div class="sidebar__logo">
         <img
-          :src="sidebarAbierto ? '/logo.png' : '/favicon.png'"
+          :src="sidebarAbierto ? '/logo-sidebar.png' : '/favicon.png'"
           alt="Faktur"
           class="sidebar__logo-img"
           :class="{ 'sidebar__logo-img--mini': !sidebarAbierto }"
