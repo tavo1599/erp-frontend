@@ -6,7 +6,6 @@ import { authService } from '../services/auth.service';
 import { useAuthStore } from '../stores/auth.store';
 import BaseInput from '../components/ui/BaseInput.vue';
 import BaseButton from '../components/ui/BaseButton.vue';
-import { LayoutDashboard } from 'lucide-vue-next';
 import { useToast } from '../composables/useToast';
 
 const toast = useToast();
@@ -65,10 +64,9 @@ async function iniciarSesion() {
     <div class="login__card">
       <div class="login__header">
         <div class="login__logo">
-  <LayoutDashboard :size="48" :stroke-width="1.5" />
-</div>
-        <h1 class="login__titulo">Mi ERP</h1>
-        <p class="login__subtitulo">Sistema de gestión empresarial</p>
+          <img src="/logo.png" alt="Faktur" class="login__logo-img" />
+        </div>
+        <p class="login__subtitulo">Sistema de facturación electrónica</p>
       </div>
 
       <form class="login__form" @submit.prevent="iniciarSesion">
@@ -120,12 +118,15 @@ async function iniciarSesion() {
   margin-bottom: var(--space-xl);
 }
 .login__logo {
-  font-size: 3rem;
   margin-bottom: var(--space-sm);
 }
-.login__titulo {
-  font-size: var(--text-2xl);
-  color: var(--text-primary);
+.login__logo-img {
+  height: 64px;
+  width: auto;
+  max-width: 220px;
+  object-fit: contain;
+  margin: 0 auto;
+  display: block;
 }
 .login__subtitulo {
   color: var(--text-secondary);

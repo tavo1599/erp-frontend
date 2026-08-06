@@ -113,8 +113,12 @@ onMounted(async () => {
     <!-- SIDEBAR -->
     <aside class="sidebar" :class="{ 'sidebar--cerrado': !sidebarAbierto }">
       <div class="sidebar__logo">
-        <LayoutDashboard :size="26" class="sidebar__logo-icono" />
-        <span v-if="sidebarAbierto" class="sidebar__logo-texto">Mi ERP</span>
+        <img
+          :src="sidebarAbierto ? '/logo.png' : '/favicon.png'"
+          alt="Faktur"
+          class="sidebar__logo-img"
+          :class="{ 'sidebar__logo-img--mini': !sidebarAbierto }"
+        />
       </div>
 
       <!-- CARD EMPRESA ACTIVA -->
@@ -275,7 +279,17 @@ onMounted(async () => {
   font-size: var(--text-xl);
   font-weight: 700;
 }
-.sidebar__logo-icono { font-size: 1.8rem; }
+.sidebar__logo-img {
+  height: 34px;
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
+}
+.sidebar__logo-img--mini {
+  height: 30px;
+  width: 30px;
+  margin: 0 auto;
+}
 
 /* CARD EMPRESA ACTIVA */
 .empresa-card {
